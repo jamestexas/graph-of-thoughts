@@ -1,0 +1,205 @@
+# graph_of_thoughts/chat_manager.py
+
+import json
+import networkx as nx
+
+import os
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+
+import torch
+from transformers import GenerationConfig
+
+from graph_of_thoughts.context_manager import ContextGraphManager
+from graph_of_thoughts.utils import extract_and_clean_json
+from graph_of_thoughts.constants import console, MAX_NEW_TOKENS
+from graph_of_thoughts.evaluate_llm_graph import (
+    KnowledgeGraph,
+    load_graph,
+    compute_graph_metrics,
+)
+
+
+class ChatManager:
+    """
+    Manages conversations with the LLM and updates the context graph.
+    """
+
+    def __init__(self, context_manager: ContextGraphManager):
+        """Initialize with a context manager."""
+        self.context_manager = context_manager
+
+    def generate_response(
+        self,
+        query: str,
+        max_new_tokens: int = MAX_NEW_TOKENS,
+    ) -> str:
+        """Generate a response for a query using the context graph."""
+        # Get relevant nodes
+        relevant_nodes = self.context_manager.query_context(query, top_k=3)
+
+        # Build navigation path
+        navigation_path = " → ".join(relevant_nodes)
+
+        # Construct prompt
+        extended_prompt = f"""
+[Knowledge Graph Navigation]
+- Your goal is to expand relevant concepts based on the **existing graph**.
+- Navigate down from the **root concept** to related subtopics.
+- Prioritize depth over breadth—go deeper before adding new high-level topics.
+
+[Current Query]: {query}
+[Current Navigation Path]: {navigation_path}
+
+[Existing Graph Structure]:
+{self.context_manager.visualize_graph_as_text()} 
+
+[Reasoning Instructions]:
+1️⃣ Identify missing knowledge gaps in the structure.
+2️⃣ Expand deeper where necessary—**do not just add random new nodes.**
+3️⃣ Maintain a logical structure using causality and dependencies.
+4️⃣ Output only **valid JSON inside <json>...</json>** tags.
+
+[Generated Knowledge Graph Update]:
+"""
+
+        # Tokenize and generate
+        inputs = self.context_manager.tokenizer(
+            extended_prompt,
+            return_tensors="pt",
+        ).to(self.context_manager.model.device)
+
+        generation_config = GenerationConfig(
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            top_p=0.9,
+            top_k=50,
+            pad_token_id=self.context_manager.tokenizer.eos_token_id,
+        )
+
+        with torch.no_grad():
+            output = self.context_manager.model.generate(
+                **inputs, generation_config=generation_config
+            )
+
+        # Decode and return
+        return self.context_manager.tokenizer.decode(
+            output[0], skip_special_tokens=True
+        )
+
+    def process_turn(self, user_input: str, conversation_turn: int) -> str:
+        """Process a single conversation turn."""
+        # Decay node importance
+        self.context_manager.decay_importance(decay_factor=0.95, adaptive=True)
+
+        # Log user input
+        console.log(f"[User {conversation_turn}]: {user_input}", style="user")
+
+        # Add user input to context
+        self.context_manager.add_context(f"user_{conversation_turn}", user_input)
+
+        # Retrieve relevant context
+        retrieved_context = self.context_manager.query_context(user_input, top_k=3)
+        console.log(f"[Context Retrieved]: {retrieved_context}", style="context")
+
+        # Generate response
+        response = self.generate_response(user_input)
+        console.log(f"[LLM Response {conversation_turn}]: {response}", style="llm")
+
+        # Add response to context
+        self.context_manager.add_context(f"llm_{conversation_turn}", response)
+
+        # Extract reasoning and update graph
+        try:
+            reasoning_output = extract_and_clean_json(response)
+            self.context_manager.iterative_refinement(reasoning_output)
+        except Exception as e:
+            console.log(
+                f"[Error] No valid structured reasoning found: {e}. Raw LLM output: {response}",
+                style="warning",
+            )
+
+        # Prune low-importance nodes
+        self.context_manager.prune_context(threshold=0.8)
+
+        return response
+
+    def simulate_conversation(
+        self,
+        inputs: List[str],
+        seed_data: Optional[List] = None,
+        experiment_name: str = "default_experiment",
+    ) -> Dict[str, Any]:
+        """Simulate a full conversation with multiple turns."""
+        experiment_data = []
+        conversation_turn = 1
+
+        for user_input in inputs:
+            # Capture graph state before processing
+            graph_before = self.context_manager.graph_storage.graph.copy()
+
+            # Process the turn
+            response = self.process_turn(user_input, conversation_turn)
+
+            # Capture graph state after processing
+            graph_after = self.context_manager.graph_storage.graph.copy()
+
+            # Get retrieved context
+            retrieved_context = self.context_manager.query_context(user_input, top_k=3)
+
+            # Save for evaluation
+            os.makedirs("output", exist_ok=True)
+
+            # Create baseline and updated graphs
+            baseline = KnowledgeGraph("Baseline")
+            baseline.graph = graph_before
+            baseline.save_graph_json("output/baseline_graph.json")
+
+            llm_graph = KnowledgeGraph("LLM")
+            llm_graph.graph = graph_after
+            llm_graph.save_graph_json("output/llm_graph.json")
+
+            # Calculate metrics
+            metrics = compute_graph_metrics(
+                load_graph("output/baseline_graph.json"),
+                load_graph("output/llm_graph.json"),
+            )
+
+            # Save turn data
+            turn_data = {
+                "turn": conversation_turn,
+                "user_input": user_input,
+                "llm_response": response,
+                "retrieved_context": retrieved_context,
+                "graph_before": self.serialize_graph(graph_before),
+                "graph_after": self.serialize_graph(graph_after),
+                "metrics": metrics,
+            }
+
+            experiment_data.append(turn_data)
+            conversation_turn += 1
+
+        # Save complete experiment data
+        with open(f"{experiment_name}_data.json", "w") as f:
+            json.dump(experiment_data, f, indent=4, default=self.datetime_handler)
+
+        return experiment_data
+
+    @staticmethod
+    def serialize_graph(graph):
+        """Convert a graph to a serializable format."""
+        data = nx.node_link_data(graph)
+        for node in data["nodes"]:
+            for key, value in node.items():
+                if hasattr(value, "model_dump"):
+                    node[key] = value.model_dump()
+        return data
+
+    @staticmethod
+    def datetime_handler(obj):
+        """Handle datetime serialization for JSON."""
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, set):
+            return list(obj)
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
