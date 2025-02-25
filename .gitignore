@@ -1,3 +1,9 @@
+# Custom Junk
+graph_of_thoughts/files/*
+graph_of_thoughts/output/*
+**/default_experiment_data.json
+eval/expirement/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
