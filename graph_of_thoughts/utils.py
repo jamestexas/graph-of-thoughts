@@ -3,15 +3,14 @@ import torch
 import re
 import json
 import logging
-from typing import List, Dict, Any, Optional
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import Any
+
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from graph_of_thoughts.constants import (
     EMBEDDING_MODEL,
     SYSTEM_PROMPT,
-    SIMILARITY_THRESHOLD,
     MODEL_NAME,
     console,
 )
@@ -42,16 +41,23 @@ DEVICE = get_torch_device()
 
 
 def get_llm_model(model_name: str = MODEL_NAME) -> AutoModelForCausalLM:
+    """Load the LLM model for generating text."""
     return AutoModelForCausalLM.from_pretrained(
         model_name, return_dict_in_generate=True, torch_dtype=torch.float16
     ).to(DEVICE)
 
 
 def get_tokenizer(model_name: str = MODEL_NAME) -> AutoTokenizer:
+    """Load the tokenizer for the LLM model."""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
+
+
+def get_sentence_transformer(model_name: str = EMBEDDING_MODEL) -> SentenceTransformer:
+    """Load a SentenceTransformer model for embedding text."""
+    return SentenceTransformer(model_name)
 
 
 # Text processing utilities
@@ -67,7 +73,7 @@ def summarize_text(text: str, max_sentences: int = 1) -> str:
 
 
 # JSON extraction utilities
-def extract_json_substring(raw_output: str) -> Optional[Dict[str, Any]]:
+def extract_json_substring(raw_output: str) -> dict[str, Any] | None:
     """
     Extracts and validates JSON from an LLM response while logging issues.
     """
@@ -139,54 +145,44 @@ def extract_balanced_json(text: str) -> str:
 
 
 def extract_and_clean_json(text: str) -> str:
-    """
-    Extracts the first balanced JSON object from the text and cleans it by re-serializing.
+    """Extract JSON from LLM response, handling various formats."""
+    # Try to extract JSON inside <json>...</json> tags
+    json_pattern = re.compile(r"<json>(.*?)</json>", re.DOTALL)
+    match = json_pattern.search(text)
 
-    Args:
-        text (str): The text containing a JSON block.
+    # If not found, try markdown code blocks
+    if not match:
+        json_pattern = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
+        match = json_pattern.search(text)
 
-    Returns:
-        str: A clean JSON string.
+    if not match:
+        raise ValueError("No JSON found in response")
 
-    Raises:
-        ValueError: If no valid JSON object is found or it is invalid.
-    """
-    raw_json = extract_balanced_json(text)
+    json_str = match.group(1).strip()
+
+    # Further parse to find the first valid JSON object
     try:
-        parsed = json.loads(raw_json)
+        # Find first { and matching }
+        start = json_str.find("{")
+        if start == -1:
+            raise ValueError("No JSON object found in extracted text")
+
+        # Track braces for proper JSON detection
+        brace_count = 0
+        for i, char in enumerate(json_str[start:], start=start):
+            if char == "{":
+                brace_count += 1
+            elif char == "}":
+                brace_count -= 1
+                if brace_count == 0:
+                    json_obj = json_str[start : i + 1]
+                    # Validate and pretty-print
+                    parsed = json.loads(json_obj)
+                    return json.dumps(parsed, indent=2)
+
+        raise ValueError("Unbalanced JSON braces")
     except json.JSONDecodeError as e:
-        raise ValueError(f"Extracted JSON is invalid: {e}")
-    return json.dumps(parsed)
-
-
-# Embedding and similarity functions
-def deduplicate_context(
-    context_texts: List[str],
-    sentence_model: SentenceTransformer = None,
-    threshold: float = SIMILARITY_THRESHOLD,
-) -> List[str]:
-    """
-    Remove context entries that are nearly identical based on cosine similarity.
-    """
-    if sentence_model is None:
-        sentence_model = SentenceTransformer(EMBEDDING_MODEL)
-
-    unique_contexts = []
-    embeddings = []
-    for text in context_texts:
-        emb = sentence_model.encode(text, convert_to_numpy=True)
-        duplicate = False
-        for existing_emb in embeddings:
-            if (
-                cosine_similarity(emb.reshape(1, -1), existing_emb.reshape(1, -1))[0][0]
-                > threshold
-            ):
-                duplicate = True
-                break
-        if not duplicate:
-            unique_contexts.append(text)
-            embeddings.append(emb)
-    return unique_contexts
+        raise ValueError(f"Invalid JSON format: {e}")
 
 
 # Prompt building utilities

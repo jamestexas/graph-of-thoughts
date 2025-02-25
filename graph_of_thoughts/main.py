@@ -5,13 +5,12 @@ import os
 from pathlib import Path
 import torch
 from transformers import GenerationConfig
+from graph_of_thoughts.models import ChainOfThought, SeedData
 from graph_of_thoughts.context_manager import (
     get_context_mgr,
-    SeedData,
     simulate_chat,
     console,
     ContextGraphManager,
-    ChainOfThought,
     parse_chain_of_thought,
 )
 import shutil

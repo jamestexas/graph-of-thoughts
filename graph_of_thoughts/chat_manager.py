@@ -1,22 +1,23 @@
 # graph_of_thoughts/chat_manager.py
 
 import json
-import networkx as nx
-
 import os
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 import torch
+import networkx as nx
 from transformers import GenerationConfig
-
-from graph_of_thoughts.context_manager import ContextGraphManager
+from graph_of_thoughts.models import SeedData
+from graph_of_thoughts.context_manager import (
+    ContextGraphManager,
+    seed_nodes,
+)
 from graph_of_thoughts.utils import extract_and_clean_json
-from graph_of_thoughts.constants import console, MAX_NEW_TOKENS
+from graph_of_thoughts.constants import console, MAX_NEW_TOKENS, OUTPUT_DIR
 from graph_of_thoughts.evaluate_llm_graph import (
     KnowledgeGraph,
-    load_graph,
-    compute_graph_metrics,
+    GraphMetrics,
 )
 
 
@@ -30,9 +31,7 @@ class ChatManager:
         self.context_manager = context_manager
 
     def generate_response(
-        self,
-        query: str,
-        max_new_tokens: int = MAX_NEW_TOKENS,
+        self, query: str, max_new_tokens: int = MAX_NEW_TOKENS
     ) -> str:
         """Generate a response for a query using the context graph."""
         # Get relevant nodes
@@ -63,10 +62,11 @@ class ChatManager:
 [Generated Knowledge Graph Update]:
 """
 
+        console.log(f"Prompt: {extended_prompt}", style="prompt")
+
         # Tokenize and generate
         inputs = self.context_manager.tokenizer(
-            extended_prompt,
-            return_tensors="pt",
+            extended_prompt, return_tensors="pt"
         ).to(self.context_manager.model.device)
 
         generation_config = GenerationConfig(
@@ -90,10 +90,16 @@ class ChatManager:
     def process_turn(self, user_input: str, conversation_turn: int) -> str:
         """Process a single conversation turn."""
         # Decay node importance
-        self.context_manager.decay_importance(decay_factor=0.95, adaptive=True)
+        self.context_manager.decay_importance(
+            decay_factor=0.95,
+            adaptive=True,
+        )
 
         # Log user input
-        console.log(f"[User {conversation_turn}]: {user_input}", style="user")
+        console.log(
+            f"[User {conversation_turn}]: {user_input}",
+            style="user",
+        )
 
         # Add user input to context
         self.context_manager.add_context(f"user_{conversation_turn}", user_input)
@@ -126,15 +132,24 @@ class ChatManager:
 
     def simulate_conversation(
         self,
-        inputs: List[str],
-        seed_data: Optional[List] = None,
+        inputs: list[str],
+        seed_data: list[SeedData] | None = None,
         experiment_name: str = "default_experiment",
-    ) -> Dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         """Simulate a full conversation with multiple turns."""
+        # Create output directory if it doesn't exist
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        # Add seed data if provided
+        if seed_data:
+            seed_nodes(self.context_manager, seed_data)
+
         experiment_data = []
         conversation_turn = 1
 
         for user_input in inputs:
+            console.log(f"\n[User {conversation_turn}]: {user_input}", style="user")
+
             # Capture graph state before processing
             graph_before = self.context_manager.graph_storage.graph.copy()
 
@@ -147,23 +162,33 @@ class ChatManager:
             # Get retrieved context
             retrieved_context = self.context_manager.query_context(user_input, top_k=3)
 
-            # Save for evaluation
-            os.makedirs("output", exist_ok=True)
+            # Save graphs for evaluation
+            baseline_path = OUTPUT_DIR / f"{experiment_name}_baseline_graph.json"
+            llm_path = OUTPUT_DIR / f"{experiment_name}_llm_graph.json"
 
-            # Create baseline and updated graphs
+            # Create baseline and LLM graphs
             baseline = KnowledgeGraph("Baseline")
             baseline.graph = graph_before
-            baseline.save_graph_json("output/baseline_graph.json")
+            baseline.save_graph_json(baseline_path)
 
             llm_graph = KnowledgeGraph("LLM")
             llm_graph.graph = graph_after
-            llm_graph.save_graph_json("output/llm_graph.json")
+            llm_graph.save_graph_json(llm_path)
 
-            # Calculate metrics
-            metrics = compute_graph_metrics(
-                load_graph("output/baseline_graph.json"),
-                load_graph("output/llm_graph.json"),
-            )
+            # Convert graphs to format expected by GraphMetrics
+            baseline_data = {
+                "nodes": self._extract_nodes(graph_before),
+                "edges": list(graph_before.edges()),
+            }
+
+            llm_data = {
+                "nodes": self._extract_nodes(graph_after),
+                "edges": list(graph_after.edges()),
+            }
+
+            # Calculate metrics using the new GraphMetrics class
+            metrics_calculator = GraphMetrics(baseline_data, llm_data)
+            metrics = metrics_calculator.compute_metrics()
 
             # Save turn data
             turn_data = {
@@ -171,8 +196,8 @@ class ChatManager:
                 "user_input": user_input,
                 "llm_response": response,
                 "retrieved_context": retrieved_context,
-                "graph_before": self.serialize_graph(graph_before),
-                "graph_after": self.serialize_graph(graph_after),
+                "graph_before": self._serialize_graph(graph_before),
+                "graph_after": self._serialize_graph(graph_after),
                 "metrics": metrics,
             }
 
@@ -180,15 +205,27 @@ class ChatManager:
             conversation_turn += 1
 
         # Save complete experiment data
-        with open(f"{experiment_name}_data.json", "w") as f:
-            json.dump(experiment_data, f, indent=4, default=self.datetime_handler)
+        experiment_file = OUTPUT_DIR / f"{experiment_name}_data.json"
+        with open(experiment_file, "w") as f:
+            json.dump(experiment_data, f, indent=4, default=self._datetime_handler)
 
+        console.log(f"Experiment data saved to {experiment_file}", style="info")
         return experiment_data
 
+    def _extract_nodes(self, graph: nx.DiGraph) -> dict:
+        """Extract node content from the graph for metrics calculation."""
+        nodes = {}
+        for node in graph.nodes:
+            if "data" in graph.nodes[node] and "content" in graph.nodes[node]["data"]:
+                nodes[node] = graph.nodes[node]["data"]["content"]
+            else:
+                nodes[node] = "No description"
+        return nodes
+
     @staticmethod
-    def serialize_graph(graph):
+    def _serialize_graph(graph: nx.DiGraph) -> dict:
         """Convert a graph to a serializable format."""
-        data = nx.node_link_data(graph)
+        data = nx.node_link_data(graph, edges="links")
         for node in data["nodes"]:
             for key, value in node.items():
                 if hasattr(value, "model_dump"):
@@ -196,7 +233,7 @@ class ChatManager:
         return data
 
     @staticmethod
-    def datetime_handler(obj):
+    def _datetime_handler(obj):
         """Handle datetime serialization for JSON."""
         if isinstance(obj, datetime):
             return obj.isoformat()

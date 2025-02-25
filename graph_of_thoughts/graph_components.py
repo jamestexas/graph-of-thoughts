@@ -1,24 +1,60 @@
 # graph_of_thoughts/graph_components.py
 
+from typing import Self
 import networkx as nx
 import numpy as np
 from datetime import datetime, timezone
-import json
+
 import faiss
-from typing import List, Dict, Any, Optional, Tuple, Union
-from pydantic import BaseModel
-import torch
+
 from sentence_transformers import SentenceTransformer
 
 from graph_of_thoughts.constants import (
     EMBEDDING_MODEL,
     EMBEDDING_DIMENSION,
-    SIMILARITY_THRESHOLD,
     IMPORTANCE_DECAY_FACTOR,
     PRUNE_THRESHOLD,
     console,
 )
-from graph_of_thoughts.context_manager import ContextNode, ChainOfThought
+from graph_of_thoughts.models import ContextNode, ChainOfThought, Node
+from graph_of_thoughts.utils import get_sentence_transformer
+
+
+def build_initial_graph() -> nx.DiGraph:
+    """
+    Creates a small directed (hierarchical) graph with some default edges and attributes.
+    """
+    graph = nx.DiGraph()
+
+    # root node
+    node_root = ContextNode(
+        node_id="root",
+        content="Top-level concept",
+        metadata={"importance": 1.0},
+    )
+    graph.add_node("root", data=node_root)
+
+    # subA node
+    node_subA = ContextNode(
+        node_id="subA",
+        content="A sub concept under root",
+        metadata={"importance": 0.9},
+    )
+    graph.add_node("subA", data=node_subA)
+
+    # subB node
+    node_subB = ContextNode(
+        node_id="subB",
+        content="Another sub concept under root",
+        metadata={"importance": 0.9},
+    )
+    graph.add_node("subB", data=node_subB)
+
+    # edges
+    graph.add_edge("root", "subA")
+    graph.add_edge("root", "subB")
+
+    return graph
 
 
 class GraphStorage:
@@ -26,23 +62,27 @@ class GraphStorage:
     Handles storage, serialization, and basic operations for the knowledge graph.
     """
 
-    def __init__(self, initial_graph: Optional[nx.DiGraph] = None):
+    def __init__(self, initial_graph: nx.DiGraph | None = None):
         """Initialize with an optional existing graph."""
         self.graph = initial_graph if initial_graph is not None else nx.DiGraph()
 
     def add_node(
-        self, node_id: str, content: str, metadata: Optional[Dict] = None
+        self,
+        node_id: str,
+        content: str,
+        metadata: dict | None = None,
     ) -> None:
         """Add a node to the graph with content and metadata."""
         if metadata is None:
             metadata = {"importance": 1.0}
 
-        node_data = {
-            "content": content,
-            "importance": metadata.get("importance", 1.0),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        self.graph.add_node(node_id, data=node_data)
+        node = Node(
+            content=content,
+            importance=metadata.get("importance", 1.0),
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+
+        self.graph.add_node(node_id, data=node.model_dump())
         console.log(f"Added node: {node_id}", style="info")
 
     def add_edge(self, source: str, target: str) -> None:
@@ -60,13 +100,18 @@ class GraphStorage:
             self.graph.remove_node(node_id)
             console.log(f"Removed node: {node_id}", style="info")
 
-    def get_node_content(self, node_id: str) -> Optional[str]:
+    def get_node_content(self, node_id: str) -> str | None:
         """Get the content of a node."""
         if node_id in self.graph.nodes:
-            return self.graph.nodes[node_id].get("data", {}).get("content")
+            node_data = self.graph.nodes[node_id].get("data", {})
+            # Handle both dictionary and Node object formats
+            if isinstance(node_data, dict):
+                return node_data.get("content")
+            elif hasattr(node_data, "content"):
+                return node_data.content
         return None
 
-    def to_json(self) -> Dict:
+    def to_json(self) -> dict:
         """Convert the graph to a JSON-serializable format."""
         data = nx.node_link_data(self.graph)
         # Convert node data to serializable format
@@ -96,35 +141,55 @@ class GraphStorage:
         return "\n".join(text)
 
     def decay_node_importance(
-        self, node_id: str, decay_factor: float = IMPORTANCE_DECAY_FACTOR
-    ) -> None:
+        self,
+        node_id: str,
+        decay_factor: float = IMPORTANCE_DECAY_FACTOR,
+    ) -> Self:
         """Apply time-based decay to a node's importance."""
         if node_id not in self.graph.nodes:
-            return
+            return self
 
         node_data = self.graph.nodes[node_id].get("data", {})
         if not node_data:
-            return
+            return self
 
         # Get current importance
         importance = node_data.get("importance", 1.0)
 
-        # Get node age in hours
-        created_str = node_data.get("created_at")
-        if created_str:
-            try:
-                created_at = datetime.fromisoformat(created_str)
-                age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
-                decay_rate = decay_factor ** (age_seconds / 3600)  # Per hour
+        # Get node age - handle string or datetime objects
+        created_at_str = node_data.get("created_at")
+        if not created_at_str:
+            # No timestamp available, can't decay
+            return self
 
-                # Update importance
-                new_importance = importance * decay_rate
-                node_data["importance"] = new_importance
-                self.graph.nodes[node_id]["data"] = node_data
-            except (ValueError, TypeError):
-                console.log(
-                    f"Invalid datetime format for node: {node_id}", style="warning"
+        try:
+            # Handle both string and datetime objects
+            if isinstance(created_at_str, str):
+                created_at = datetime.fromisoformat(
+                    created_at_str.replace("Z", "+00:00")
                 )
+            elif isinstance(created_at_str, datetime):
+                created_at = created_at_str
+            else:
+                # Unsupported type
+                console.log(
+                    f"Unsupported created_at type for node {node_id}: {type(created_at_str)}",
+                    style="warning",
+                )
+                return self
+
+            # Calculate decay
+            age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
+            decay_rate = decay_factor ** (age_seconds / 3600)  # Per hour
+
+            # Update importance
+            new_importance = importance * decay_rate
+            node_data["importance"] = new_importance
+            self.graph.nodes[node_id]["data"] = node_data
+        except Exception as e:
+            console.log(f"Error during decay for node {node_id}: {e}", style="warning")
+
+        return self
 
     def prune_low_importance_nodes(self, threshold: float = PRUNE_THRESHOLD) -> None:
         """Remove nodes with importance below the threshold."""
@@ -147,6 +212,7 @@ class GraphStorage:
 
         if to_remove:
             console.log(f"Pruned {len(to_remove)} low-importance nodes", style="info")
+        return
 
 
 class EmbeddingEngine:
@@ -154,9 +220,15 @@ class EmbeddingEngine:
     Handles node embeddings, semantic similarity, and context retrieval.
     """
 
-    def __init__(self, dimension: int = EMBEDDING_DIMENSION):
+    def __init__(
+        self,
+        dimension: int = EMBEDDING_DIMENSION,
+        sentence_model: SentenceTransformer | None = None,
+    ):
         """Initialize the embedding engine with a FAISS index."""
-        self.sentence_model = SentenceTransformer(EMBEDDING_MODEL)
+        self.sentence_model = sentence_model or get_sentence_transformer(
+            model_name=EMBEDDING_MODEL,
+        )
         self.index = faiss.IndexFlatL2(dimension)
         self.nodes = []  # Parallel array to track node IDs
 
@@ -166,7 +238,7 @@ class EmbeddingEngine:
         self.nodes.append(node_id)
         self.index.add(np.array([embedding], dtype=np.float32))
 
-    def find_similar_nodes(self, query: str, top_k: int = 3) -> List[str]:
+    def find_similar_nodes(self, query: str, top_k: int = 3) -> list[str]:
         """Find nodes most similar to the query."""
         if not self.nodes:  # Empty index
             return []
@@ -201,12 +273,19 @@ class ReasoningEngine:
     Processes reasoning chains and manages iterative refinement of the graph.
     """
 
-    def __init__(self, graph_storage: GraphStorage, embedding_engine: EmbeddingEngine):
+    def __init__(
+        self,
+        graph_storage: GraphStorage,
+        embedding_engine: EmbeddingEngine,
+    ) -> None:
         """Initialize with references to graph and embedding components."""
         self.graph = graph_storage
         self.embeddings = embedding_engine
 
-    def update_from_chain_of_thought(self, chain: ChainOfThought) -> None:
+    def update_from_chain_of_thought(
+        self,
+        chain: ChainOfThought,
+    ) -> None:
         """Update the graph based on a reasoning chain."""
         # Add nodes
         for node_id, description in chain.nodes.items():
@@ -215,8 +294,6 @@ class ReasoningEngine:
 
             # Add to graph storage
             self.graph.add_node(unique_id, description)
-
-            # Add embedding
             self.embeddings.add_node_embedding(unique_id, description)
 
         # Add edges
