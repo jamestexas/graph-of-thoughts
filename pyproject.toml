@@ -30,8 +30,22 @@ pytorch-triton-xpu = [
 [tool.setuptools]
 py-modules = ['graph_of_thoughts']
 
+[dependency-groups]
+dev = ["mypy>=1.15.0", "pytest>=8.3.4", "pytest-cov>=6.0.0", "ruff>=0.9.7"]
+
 
 [[tool.uv.index]]
 name = "pytorch-xpu"
 url = "https://download.pytorch.org/whl/xpu"
 explicit = true
+
+
+# Pytest settings
+[tool.pytest.ini_options]
+addopts = "-svx"
+testpaths = ["tests"]
+
+# mypy settings
+[tool.mypy]
+ignore_missing_imports = true
+strict = true
