@@ -1,6 +1,7 @@
-from typing import Any
-from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class SeedData(BaseModel):
@@ -62,6 +63,7 @@ class ChainOfThought(BaseModel):
     nodes: dict[str, str]
     edges: list[list[str]]
 
+    @classmethod
     @field_validator("edges")
     def check_edges_not_empty(cls, edges):
         for e in edges:

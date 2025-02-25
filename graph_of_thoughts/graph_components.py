@@ -1,22 +1,21 @@
 # graph_of_thoughts/graph_components.py
 
-from typing import Self
-import networkx as nx
-import numpy as np
 from datetime import datetime, timezone
+from typing import Self
 
 import faiss
-
+import networkx as nx
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from graph_of_thoughts.constants import (
-    EMBEDDING_MODEL,
     EMBEDDING_DIMENSION,
+    EMBEDDING_MODEL,
     IMPORTANCE_DECAY_FACTOR,
     PRUNE_THRESHOLD,
     console,
 )
-from graph_of_thoughts.models import ContextNode, ChainOfThought, Node
+from graph_of_thoughts.models import ChainOfThought, ContextNode, Node
 from graph_of_thoughts.utils import get_sentence_transformer
 
 
@@ -35,20 +34,20 @@ def build_initial_graph() -> nx.DiGraph:
     graph.add_node("root", data=node_root)
 
     # subA node
-    node_subA = ContextNode(
+    node_sub_a = ContextNode(
         node_id="subA",
         content="A sub concept under root",
         metadata={"importance": 0.9},
     )
-    graph.add_node("subA", data=node_subA)
+    graph.add_node("subA", data=node_sub_a)
 
     # subB node
-    node_subB = ContextNode(
+    node_sub_b = ContextNode(
         node_id="subB",
         content="Another sub concept under root",
         metadata={"importance": 0.9},
     )
-    graph.add_node("subB", data=node_subB)
+    graph.add_node("subB", data=node_sub_b)
 
     # edges
     graph.add_edge("root", "subA")

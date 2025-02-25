@@ -1,16 +1,17 @@
 import json
+import logging
 import os
 from typing import TYPE_CHECKING
+
 import torch
 from transformers import GenerationConfig
-from graph_of_thoughts.context_manager import MODEL_NAME, MAX_NEW_TOKENS
-from graph_of_thoughts.constants import OUTPUT_DIR, FILES_DIR, console
-import logging
 
+from graph_of_thoughts.constants import FILES_DIR, OUTPUT_DIR, console
+from graph_of_thoughts.context_manager import MAX_NEW_TOKENS, MODEL_NAME
 from graph_of_thoughts.utils import get_llm_model, get_tokenizer
 
 if TYPE_CHECKING:
-    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Configure logging
 logging.basicConfig(
@@ -47,7 +48,9 @@ def process_queries_from_file(
     model: "AutoModelForCausalLM",
     tokenizer: "AutoTokenizer",
 ) -> None:
-    """Reads queries from a file, generates responses, and saves them to an output file incrementally."""
+    """Reads queries from a file, generates responses,
+    and saves them to an output file incrementally.
+    """
 
     # Ensure the output directory exists
     if not OUTPUT_DIR.exists():
@@ -59,7 +62,7 @@ def process_queries_from_file(
     os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
 
     try:
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             queries = [line.strip() for line in f]
     except FileNotFoundError:
         logging.error(f"File not found: {filepath}")

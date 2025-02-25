@@ -2,21 +2,22 @@
 
 import json
 import os
+import shutil
 from pathlib import Path
+
 import torch
 from transformers import GenerationConfig
-from graph_of_thoughts.models import ChainOfThought, SeedData
-from graph_of_thoughts.context_manager import (
-    get_context_mgr,
-    simulate_chat,
-    console,
-    ContextGraphManager,
-    parse_chain_of_thought,
-)
-import shutil
 
-from graph_of_thoughts.utils import build_structured_prompt
 from graph_of_thoughts.constants import LLM_PATH, OUTPUT_DIR
+from graph_of_thoughts.context_manager import (
+    ContextGraphManager,
+    console,
+    get_context_mgr,
+    parse_chain_of_thought,
+    simulate_chat,
+)
+from graph_of_thoughts.models import ChainOfThought, SeedData
+from graph_of_thoughts.utils import build_structured_prompt
 
 # Define the output directory and file path for the LLM-generated graph
 
@@ -43,9 +44,7 @@ def add_chain_of_thought_to_graph(
 ##############################################
 
 
-def update_and_save_graph(
-    context_manager, output_path: str, structured_reasoning_output: str
-):
+def update_and_save_graph(context_manager, output_path: str, structured_reasoning_output: str):
     """
     Load the existing LLM graph, update it with the new structured reasoning output,
     and save it back to file.
@@ -63,16 +62,12 @@ def update_and_save_graph(
         return
 
     # 🔹 Load existing graph if available
-    if (
-        os.path.exists(output_path) and os.path.getsize(output_path) > 2
-    ):  # Ensure valid file
-        with open(output_path, "r") as f:
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 2:  # Ensure valid file
+        with open(output_path) as f:
             try:
                 existing_graph = json.load(f)
             except json.JSONDecodeError:
-                console.log(
-                    f"⚠️ Corrupted JSON detected in {output_path}. Resetting graph."
-                )
+                console.log(f"⚠️ Corrupted JSON detected in {output_path}. Resetting graph.")
                 existing_graph = {"nodes": {}, "edges": []}
     else:
         existing_graph = {"nodes": {}, "edges": []}
@@ -90,9 +85,7 @@ def update_and_save_graph(
 
     # 🔹 Merge new nodes & edges (instead of overwriting)
     for node, desc in chain_obj.nodes.items():
-        if (
-            node not in existing_graph["nodes"]
-        ):  # Prevent overwriting existing descriptions
+        if node not in existing_graph["nodes"]:  # Prevent overwriting existing descriptions
             existing_graph["nodes"][node] = desc
 
     for edge in chain_obj.edges:
@@ -165,16 +158,12 @@ def main():
         pad_token_id=context_manager.tokenizer.eos_token_id,
     )
     with torch.no_grad():
-        output = context_manager.model.generate(
-            **inputs, generation_config=generation_config
-        )
+        output = context_manager.model.generate(**inputs, generation_config=generation_config)
 
     structured_reasoning_output = context_manager.tokenizer.decode(
         output[0], skip_special_tokens=True
     )
-    console.log(
-        "\n[Structured Reasoning Output]:", structured_reasoning_output, style="llm"
-    )
+    console.log("\n[Structured Reasoning Output]:", structured_reasoning_output, style="llm")
 
     try:
         chain_obj = parse_chain_of_thought(structured_reasoning_output)
@@ -194,9 +183,7 @@ def main():
         console.log(f"✅ Updated LLM Graph saved to {LLM_PATH}", style="info")
 
     except Exception as e:
-        console.log(
-            f"[Error] Could not parse chain-of-thought JSON: {e}", style="warning"
-        )
+        console.log(f"[Error] Could not parse chain-of-thought JSON: {e}", style="warning")
         console.log(f"[Error] Raw LLM reasoning output: {output[0]}", style="warning")
 
 

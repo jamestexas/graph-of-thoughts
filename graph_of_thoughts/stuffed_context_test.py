@@ -1,8 +1,9 @@
-from context_manager import ContextGraphManager, generate_with_context
-from main import update_and_save_graph
+import json
 import logging
 import os
-import json
+
+from context_manager import ContextGraphManager, generate_with_context
+from main import update_and_save_graph
 
 # Configure logging
 logging.basicConfig(
@@ -19,7 +20,7 @@ else:
 
 def load_stuffed_context(filepath: str):
     """Loads and parses a stuffed context file."""
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         lines = f.readlines()
 
     turns = []
@@ -56,9 +57,7 @@ def run_stuffed_context_test(context_filepath: str, final_query: str, output_dir
         context_manager.iterative_refinement(reasoning_output)
         # make sure the output dir exists.
         os.makedirs(output_dir, exist_ok=True)
-        update_and_save_graph(
-            context_manager, os.path.join(output_dir, "llm_graph.json"), response
-        )
+        update_and_save_graph(context_manager, os.path.join(output_dir, "llm_graph.json"), response)
 
         # save the experiment data.
         experiment_data = {
@@ -68,9 +67,7 @@ def run_stuffed_context_test(context_filepath: str, final_query: str, output_dir
             "graph_after": context_manager.graph_to_json(),
         }
 
-        with open(
-            os.path.join(output_dir, "stuffed_context_experiment_data.json"), "w"
-        ) as f:
+        with open(os.path.join(output_dir, "stuffed_context_experiment_data.json"), "w") as f:
             json.dump(experiment_data, f, indent=4)
 
     except Exception as e:

@@ -1,13 +1,14 @@
 # tests/conftest.py
 
-import pytest
-import networkx as nx
-from unittest.mock import MagicMock
-from pathlib import Path
 import os
+from pathlib import Path
+from unittest.mock import MagicMock
 
-from graph_of_thoughts.context_manager import ContextGraphManager
+import networkx as nx
+import pytest
+
 from graph_of_thoughts.chat_manager import ChatManager
+from graph_of_thoughts.context_manager import ContextGraphManager
 from graph_of_thoughts.models import SeedData
 
 
@@ -22,12 +23,12 @@ def temp_output_dir():
     for file in output_dir.glob("*"):
         try:
             file.unlink()
-        except Exception:
+        except Exception:  # noqa:S110
             pass
 
     try:
         output_dir.rmdir()
-    except Exception:
+    except Exception:  # noqa:S110
         pass
 
 
@@ -50,7 +51,9 @@ def mock_context_manager():
     # Create a mock dict-like object that also has a to() method
     tokenizer_return = MagicMock()
     tokenizer_return.__getitem__ = lambda self, key: MagicMock()
-    tokenizer_return.to = MagicMock(return_value=tokenizer_return)  # Return self from to() method
+    tokenizer_return.to = MagicMock(
+        return_value=tokenizer_return
+    )  # Return self from to() method
 
     tokenizer_mock.return_value = tokenizer_return
     tokenizer_mock.decode.return_value = "Mock LLM response"

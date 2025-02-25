@@ -1,12 +1,11 @@
 # tests/test_chat_manager.py
 
-import unittest
-
-from unittest.mock import MagicMock, patch
-import networkx as nx
-
-from pathlib import Path
 import os
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import networkx as nx
 
 # Import the components to test
 from graph_of_thoughts.chat_manager import ChatManager
@@ -58,12 +57,12 @@ class TestChatManager(unittest.TestCase):
         for file in self.temp_output_dir.glob("*"):
             try:
                 file.unlink()
-            except Exception:
+            except Exception:  # noqa:S110
                 pass
         if self.temp_output_dir.exists():
             try:
                 self.temp_output_dir.rmdir()
-            except Exception:
+            except Exception:  # noqa:S110
                 pass
 
     @patch("graph_of_thoughts.chat_manager.OUTPUT_DIR", Path("tests/temp_output"))
@@ -101,7 +100,7 @@ class TestChatManager(unittest.TestCase):
         # Configure mocks
         mock_extract_json.return_value = {"nodes": [], "edges": []}
 
-        # Create a mock for the generate_response method to avoid having to mock the full LLM call chain
+        # Create a mock for the generate_response method to avoid having to mock the full LLM chain
         self.chat_manager.generate_response = MagicMock(
             return_value="Mock LLM response"
         )

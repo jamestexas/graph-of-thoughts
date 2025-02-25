@@ -6,7 +6,6 @@ This avoids loading the actual model during tests, which can be slow and resourc
 """
 
 import numpy as np
-from unittest.mock import MagicMock
 
 
 class MockSentenceTransformer:

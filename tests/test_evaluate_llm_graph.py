@@ -1,19 +1,20 @@
 # tests/test_evaluate_llm_graph.py
 
-import unittest
-from unittest.mock import MagicMock, patch, mock_open
-import networkx as nx
 import json
-from pathlib import Path
 import os
 import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, mock_open, patch
+
+import networkx as nx
 
 from graph_of_thoughts.evaluate_llm_graph import (
-    KnowledgeGraph,
     GraphMatcher,
     GraphMetrics,
-    load_graph,
+    KnowledgeGraph,
     generate_report,
+    load_graph,
 )
 
 

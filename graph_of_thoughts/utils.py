@@ -1,19 +1,14 @@
 # graph_of_thoughts/utils.py
-import torch
-import re
 import json
 import logging
+import re
 from typing import Any
 
+import torch
 from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from graph_of_thoughts.constants import (
-    EMBEDDING_MODEL,
-    SYSTEM_PROMPT,
-    MODEL_NAME,
-    console,
-)
+from graph_of_thoughts.constants import EMBEDDING_MODEL, MODEL_NAME, SYSTEM_PROMPT, console
 
 # Configure logging
 logging.basicConfig(
@@ -27,14 +22,14 @@ def get_torch_device():
 
     if torch.backends.mps.is_available():
         console.log("MPS is available. Using MPS.")
-        DEVICE = "mps"
+        device = "mps"
     elif torch.cuda.is_available():
         console.log("CUDA is available. Using GPU.")
-        DEVICE = "cuda"
+        device = "cuda"
     else:
         console.log("CUDA is not available. Using CPU.")
-        DEVICE = "cpu"
-    return DEVICE
+        device = "cpu"
+    return device
 
 
 DEVICE = get_torch_device()
@@ -140,7 +135,7 @@ def extract_balanced_json(text: str) -> str:
                     parsed = json.loads(candidate)
                     return json.dumps(parsed)
                 except json.JSONDecodeError as e:
-                    raise ValueError(f"Extracted JSON is invalid: {e}")
+                    raise ValueError(f"Extracted JSON is invalid: {e}") from e
     raise ValueError("Unbalanced JSON braces in the text.")
 
 
@@ -182,7 +177,7 @@ def extract_and_clean_json(text: str) -> str:
 
         raise ValueError("Unbalanced JSON braces")
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON format: {e}")
+        raise ValueError(f"Invalid JSON format: {e}") from e
 
 
 # Prompt building utilities
@@ -203,7 +198,7 @@ def build_structured_prompt(query: str) -> str:
 
     return f"""{SYSTEM_PROMPT}
 
-📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON. 
+📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON.
 
 Question: {query}
 <json>

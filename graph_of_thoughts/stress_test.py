@@ -1,13 +1,14 @@
-import time
 import logging
+import time
+
 import torch
 from main import (
-    build_structured_prompt,
-    parse_chain_of_thought,
-    get_context_mgr,
-    add_chain_of_thought_to_graph,
-    update_and_save_graph,
     LLM_PATH,
+    add_chain_of_thought_to_graph,
+    build_structured_prompt,
+    get_context_mgr,
+    parse_chain_of_thought,
+    update_and_save_graph,
 )
 from transformers import GenerationConfig
 
@@ -35,7 +36,10 @@ test_queries = [
 
 
 def run_stress_test():
-    """Runs a stress test by sending multiple structured reasoning prompts to the system and validating responses."""
+    """
+    Runs a stress test by sending multiple structured reasoning prompts to the system
+    and validating the responses.
+    """
     context_manager = get_context_mgr()
     failures = 0
     total_time = 0

@@ -1,33 +1,32 @@
 # graph_of_thoughts/context_manager.py
 
 import json
-import torch
-import networkx as nx
-import numpy as np
+import logging
 import re
-from typing import List, Optional, TYPE_CHECKING
-from transformers import GenerationConfig
-from sentence_transformers import SentenceTransformer
-from graph_of_thoughts.models import SeedData, ChainOfThought
+from typing import TYPE_CHECKING, Optional
 
 import faiss
+import networkx as nx
+import numpy as np
+import torch
+from sentence_transformers import SentenceTransformer
+from transformers import GenerationConfig
 
 from graph_of_thoughts.constants import (
-    console,
     EMBEDDING_MODEL,
+    IMPORTANCE_DECAY_FACTOR,
     MAX_NEW_TOKENS,
     MODEL_NAME,
-    IMPORTANCE_DECAY_FACTOR,
     PRUNE_THRESHOLD,
+    console,
 )
 from graph_of_thoughts.graph_components import (
-    GraphStorage,
     EmbeddingEngine,
+    GraphStorage,
     ReasoningEngine,
     build_initial_graph,
 )
-
-import logging
+from graph_of_thoughts.models import ChainOfThought, SeedData
 from graph_of_thoughts.utils import (
     extract_and_clean_json,
     get_llm_model,
@@ -36,7 +35,7 @@ from graph_of_thoughts.utils import (
 )
 
 if TYPE_CHECKING:
-    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logging.basicConfig(level=logging.INFO)  # Enable debug logs
 
@@ -82,7 +81,7 @@ def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
             f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string}",
             style="warning",
         )
-        raise ValueError("Invalid JSON format.")
+        raise ValueError("Invalid JSON format.") from e
 
     if "nodes" not in data or "edges" not in data:
         console.log(f"❌ Parsed JSON missing required fields: {data}", style="warning")
@@ -206,7 +205,7 @@ def generate_with_context(
 [Current Navigation Path]: {navigation_path}
 
 [Existing Graph Structure]:
-{context_manager.visualize_graph_as_text()} 
+{context_manager.visualize_graph_as_text()}
 
 [Reasoning Instructions]:
 1️⃣ Identify missing knowledge gaps in the structure.
@@ -296,8 +295,8 @@ def chat_entry(
 
 def simulate_chat(
     context_manager: ContextGraphManager,
-    conversation_inputs: List[str],
-    seed_data: Optional[List[SeedData]] = None,
+    conversation_inputs: list[str],
+    seed_data: list[SeedData] | None = None,
     experiment_name: str = "default_experiment",
 ) -> None:
     """Simulation function that uses ChatManager for consistency."""

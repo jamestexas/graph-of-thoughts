@@ -5,20 +5,15 @@ import os
 from datetime import datetime
 from typing import Any
 
-import torch
 import networkx as nx
+import torch
 from transformers import GenerationConfig
+
+from graph_of_thoughts.constants import MAX_NEW_TOKENS, OUTPUT_DIR, console
+from graph_of_thoughts.context_manager import ContextGraphManager, seed_nodes
+from graph_of_thoughts.evaluate_llm_graph import GraphMetrics, KnowledgeGraph
 from graph_of_thoughts.models import SeedData
-from graph_of_thoughts.context_manager import (
-    ContextGraphManager,
-    seed_nodes,
-)
 from graph_of_thoughts.utils import extract_and_clean_json
-from graph_of_thoughts.constants import console, MAX_NEW_TOKENS, OUTPUT_DIR
-from graph_of_thoughts.evaluate_llm_graph import (
-    KnowledgeGraph,
-    GraphMetrics,
-)
 
 
 class ChatManager:
@@ -51,7 +46,7 @@ class ChatManager:
 [Current Navigation Path]: {navigation_path}
 
 [Existing Graph Structure]:
-{self.context_manager.visualize_graph_as_text()} 
+{self.context_manager.visualize_graph_as_text()}
 
 [Reasoning Instructions]:
 1️⃣ Identify missing knowledge gaps in the structure.

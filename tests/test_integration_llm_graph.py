@@ -1,15 +1,14 @@
 # tests/test_integration_llm_graph.py
 
-import unittest
-from unittest.mock import patch, mock_open
-import tempfile
-import os
 import json
+import tempfile
+import unittest
 from pathlib import Path
+from unittest.mock import mock_open, patch
 
 from graph_of_thoughts.evaluate_llm_graph import (
-    KnowledgeGraph,
     GraphMetrics,
+    KnowledgeGraph,
     generate_report,
     load_graph,
 )

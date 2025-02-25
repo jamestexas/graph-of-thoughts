@@ -1,15 +1,12 @@
-from pathlib import Path
-import networkx as nx
 import json
 import os
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import networkx as nx
 from sentence_transformers import SentenceTransformer
-from graph_of_thoughts.constants import (
-    OUTPUT_DIR,
-    LLM_PATH,
-    EMBEDDING_MODEL,
-    console,
-)
+
+from graph_of_thoughts.constants import EMBEDDING_MODEL, LLM_PATH, OUTPUT_DIR, console
 from graph_of_thoughts.utils import get_sentence_transformer
 
 # Load a sentence transformer for semantic similarity
@@ -112,9 +109,7 @@ class GraphMatcher:
         matched_edges = set()
         for base_edge in baseline_edges:
             for gen_edge in generated_edges:
-                if self.compute_semantic_similarity(
-                    " → ".join(base_edge), " → ".join(gen_edge)
-                ):
+                if self.compute_semantic_similarity(" → ".join(base_edge), " → ".join(gen_edge)):
                     matched_edges.add(base_edge)
                     break
         return matched_edges
@@ -141,9 +136,7 @@ class GraphMetrics:
         false_positive_nodes = len(generated_nodes - baseline_nodes)
         false_negative_nodes = len(baseline_nodes - generated_nodes)
 
-        precision_nodes = self._calculate_precision(
-            true_positive_nodes, false_positive_nodes
-        )
+        precision_nodes = self._calculate_precision(true_positive_nodes, false_positive_nodes)
         recall_nodes = self._calculate_recall(true_positive_nodes, false_negative_nodes)
         f1_nodes = self._calculate_f1(precision_nodes, recall_nodes)
 
@@ -153,9 +146,7 @@ class GraphMetrics:
         false_positive_edges = len(generated_edges - matched_edges)
         false_negative_edges = len(baseline_edges - matched_edges)
 
-        precision_edges = self._calculate_precision(
-            true_positive_edges, false_positive_edges
-        )
+        precision_edges = self._calculate_precision(true_positive_edges, false_positive_edges)
         recall_edges = self._calculate_recall(true_positive_edges, false_negative_edges)
         f1_edges = self._calculate_f1(precision_edges, recall_edges)
 
@@ -186,11 +177,7 @@ class GraphMetrics:
 
     @staticmethod
     def _calculate_f1(precision, recall):
-        return (
-            2 * (precision * recall) / (precision + recall)
-            if (precision + recall) > 0
-            else 0
-        )
+        return 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 
 
 def generate_report(metrics):
