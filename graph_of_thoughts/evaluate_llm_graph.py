@@ -1,16 +1,22 @@
+from pathlib import Path
 import networkx as nx
 import json
 import os
 import matplotlib.pyplot as plt
 from sentence_transformers import SentenceTransformer
-
-OUTPUT_DIR = "output"
-BASELINE_PATH = os.path.join(OUTPUT_DIR, "baseline_graph.json")
-LLM_PATH = os.path.join(OUTPUT_DIR, "llm_graph.json")
-REPORT_PATH = os.path.join(OUTPUT_DIR, "graph_comparison.txt")
+from graph_of_thoughts.constants import (
+    OUTPUT_DIR,
+    LLM_PATH,
+    EMBEDDING_MODEL,
+)
+from constants import console
 
 # Load a sentence transformer for semantic similarity
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+BASELINE_PATH: Path = OUTPUT_DIR / "baseline_graph.json"
+REPORT_PATH: Path = OUTPUT_DIR / "graph_comparison.txt"
+
+console.log(f"Retrieving Sentence Transformer model: {EMBEDDING_MODEL}")
+model = SentenceTransformer(EMBEDDING_MODEL)
 
 
 class KnowledgeGraph:
@@ -74,7 +80,11 @@ def load_graph(file_path):
         return json.load(f)
 
 
-def compute_semantic_similarity(text1, text2, threshold=0.75):
+def compute_semantic_similarity(
+    text1: str,
+    text2: str,
+    threshold: float = 0.75,
+):
     """Check if two texts are semantically similar using embeddings."""
     embeddings = model.encode([text1, text2])
     similarity = (embeddings[0] @ embeddings[1]) / (

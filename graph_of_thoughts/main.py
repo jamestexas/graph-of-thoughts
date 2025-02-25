@@ -2,9 +2,10 @@
 
 import json
 import os
+from pathlib import Path
 import torch
 from transformers import GenerationConfig
-from context_manager import (
+from graph_of_thoughts.context_manager import (
     get_context_mgr,
     SeedData,
     simulate_chat,
@@ -15,83 +16,12 @@ from context_manager import (
 )
 import shutil
 
+from graph_of_thoughts.utils import build_structured_prompt
+from graph_of_thoughts.constants import LLM_PATH, OUTPUT_DIR
+
 # Define the output directory and file path for the LLM-generated graph
-OUTPUT_DIR = "output"
-LLM_PATH = os.path.join(OUTPUT_DIR, "llm_graph.json")
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-SYSTEM_PROMPT = """
-You are an AI assistant designed to generate a structured knowledge graph.
-
-IMPORTANT RULES:
-1️⃣ Output **ONLY** valid JSON inside <json>...</json> tags.
-2️⃣ Structure must include:
-   - "nodes": { "Concept": "Description" }
-   - "edges": [ ["Parent", "Child"] ]
-3️⃣ Expand the graph by:
-   - **Adding new concepts** (subcategories, explanations, trade-offs).
-   - **Connecting ideas** based on **causality**, **hierarchies**, and **dependencies**.
-   - **Using technical depth** (e.g., caching → eviction policies → specific algorithms like LRU, LFU, ARC).
-
-EXAMPLE OUTPUT:
-<json>
-{
-  "nodes": {
-    "Caching": "A method for storing frequently used data",
-    "LRU": "Least Recently Used eviction strategy",
-    "LFU": "Least Frequently Used strategy",
-    "TTL": "A strategy based on expiration time",
-    "ARC": "Adaptive Replacement Cache that balances LRU and LFU",
-    "Write-Through": "Writes data to cache and database simultaneously",
-    "Write-Back": "Writes data to cache first, then to the database"
-  },
-  "edges": [
-    ["Caching", "LRU"],
-    ["Caching", "LFU"],
-    ["Caching", "TTL"],
-    ["Caching", "ARC"],
-    ["Caching", "Write-Through"],
-    ["Caching", "Write-Back"],
-    ["ARC", "LRU"],
-    ["ARC", "LFU"]
-  ]
-}
-</json>
-
-📌 Your task: Expand the knowledge graph further based on the input query.
-"""
-
-
-##############################################
-# 2) Building a Llama 3.x Instruct Prompt
-##############################################
-
-
-def build_llama_instruct_prompt(system_text: str, user_text: str) -> str:
-    """
-    Constructs a multi-turn style prompt for Llama 3.x Instruct models.
-    """
-    return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
-{system_text}
-<|eot_id|><|start_header_id|>user<|end_header_id|>
-{user_text}
-<|eot_id|><|start_header_id|>assistant<|end_header_id|>
-"""
-
-
-def build_structured_prompt(query: str) -> str:
-    return f"""{SYSTEM_PROMPT}
-
-📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON. 
-
-Question: {query}
-<json>
-"""
-
-
-##############################################
-# 3) Parsing the LLM's JSON Output
-##############################################
 
 
 def add_chain_of_thought_to_graph(
@@ -179,19 +109,20 @@ def update_and_save_graph(
     console.log(f"✅ Updated LLM Graph saved to {output_path}")
 
 
+def load_graph(file_path: str = LLM_PATH) -> dict:
+    """Load graph data from a JSON file."""
+    p = Path(file_path).resolve()
+    default_graph = dict(nodes=dict(), edges=[])
+    if not p.exists():
+        return default_graph
+    contents = p.read_text()
+    return json.loads(contents)
+
+
 def main():
     context_manager = get_context_mgr()
-
     # Load previous LLM graph if available
-    if os.path.exists(LLM_PATH):
-        with open(LLM_PATH, "r") as f:
-            try:
-                llm_graph = json.load(f)
-            except json.JSONDecodeError:
-                llm_graph = {"nodes": {}, "edges": []}
-    else:
-        llm_graph = {"nodes": {}, "edges": []}
-
+    llm_graph = load_graph(LLM_PATH)
     # Seed nodes for initial context
     seed_data = [
         SeedData(

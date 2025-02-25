@@ -7,39 +7,30 @@ import torch
 import networkx as nx
 import numpy as np
 import re
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from transformers import GenerationConfig
-from rich.console import Console
-from rich.theme import Theme
+
 from datetime import datetime, timezone
 import faiss
-from evaluate_llm_graph import load_graph, compute_graph_metrics, KnowledgeGraph
+from graph_of_thoughts.evaluate_llm_graph import (
+    load_graph,
+    compute_graph_metrics,
+    KnowledgeGraph,
+)
+from graph_of_thoughts.constants import console
 
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
+from constants import MAX_NEW_TOKENS, MODEL_NAME, EMBEDDING_MODEL
 import logging
 
-logging.basicConfig(level=logging.INFO)  # Enable debug logs
+from graph_of_thoughts.utils import extract_and_clean_json, get_llm_model, get_tokenizer
 
-# Define a custom theme for styled logging
-custom_theme = Theme(
-    dict(
-        context="cyan",
-        user="magenta",
-        llm="green",
-        prompt="blue",
-        metrics="yellow",
-        info="white",
-        warning="bold red",
-    )
-)
-console = Console(theme=custom_theme)
-MAX_NEW_TOKENS = 100
-MODEL_NAME = "unsloth/Llama-3.2-3B-Instruct"
-DEVICE = "cuda" if torch.cuda.is_available() else "mps"  # default to maccy
+
+if TYPE_CHECKING:
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+logging.basicConfig(level=logging.INFO)  # Enable debug logs
 
 
 class FastEmbeddingIndex:
@@ -57,6 +48,12 @@ class FastEmbeddingIndex:
             top_k,
         )
         return [self.nodes[i] for i in indices[0]]
+
+
+class SeedData(BaseModel):
+    node_id: str
+    content: str
+    metadata: dict
 
 
 # 1) Define a Pydantic model that enforces "nodes" and "edges" structure
@@ -82,132 +79,38 @@ class ChainOfThought(BaseModel):
         return edges
 
 
-def extract_json_substring(raw_output: str):
-    """
-    Extracts and validates JSON from an LLM response while logging issues.
-    """
-    logging.debug(f"🔍 Raw LLM Output:\n{raw_output}")
-
-    # Normalize inconsistent JSON markers
-    raw_output = raw_output.replace("$json</json>", "").replace("$json", "").strip()
-
-    # First try: Extract properly wrapped JSON
-    json_tags_regex = re.compile(r"<json>\s*(\{.*?\})\s*</json>", re.DOTALL)
-    if not (match := json_tags_regex.search(raw_output)):
-        logging.warning("⚠️ No <json>...</json> tags found. Trying direct extraction...")
-        match = re.search(r"(\{.*?\})", raw_output, re.DOTALL)
-
-    if not match:
-        logging.error("❌ No valid JSON found in output.")
-        return None
-
-    json_str = match.group(1).strip()
-    logging.debug(f"✅ Extracted JSON Candidate:\n{json_str}")
-
-    # Ensure JSON contains required fields
-    try:
-        parsed_json = json.loads(json_str)
-
-        # Check if required fields exist
-        if "nodes" not in parsed_json or "edges" not in parsed_json:
-            logging.error(f"❌ Missing required fields in JSON: {parsed_json}")
-            return None
-
-        logging.info("✅ Successfully parsed and validated JSON!")
-        return parsed_json
-    except json.JSONDecodeError as e:
-        logging.error(f"❌ JSON parsing failed: {e}")
-        return None
-
-
 def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
     """
     Extracts and validates structured JSON from LLM output, ensuring robustness.
     """
 
     # 🔍 Extract JSON inside <json>...</json>, allowing for any whitespace or newlines
-    logging.debug(f"🔍 Extracting JSON from output:\n{raw_output}")
+    console.log("🔍 Extracting JSON from raw output", style="info")
 
     match = re.search(r"<json>\s*(\{.*?\})\s*</json>", raw_output, re.DOTALL)
 
     if not match:
-        logging.error("❌ No valid JSON block found in LLM output!")
+        console.log("❌ No valid JSON block found in LLM output!", style="warning")
         raise ValueError("No valid JSON block found.")
 
     json_string = match.group(1).strip()
     # ✅ Debugging: Print extracted JSON before parsing
-    logging.debug(f"✅ Extracted JSON String:\n{json_string}")
+    console.log(f"✅ Extracted JSON String:\n{json_string}", style="context")
 
     try:
         data = json.loads(json_string)
     except json.JSONDecodeError as e:
-        logging.error(f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string}")
+        console.log(
+            f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string}",
+            style="warning",
+        )
         raise ValueError("Invalid JSON format.")
 
     if "nodes" not in data or "edges" not in data:
-        logging.error(f"❌ Parsed JSON missing required fields: {data}")
+        console.log(f"❌ Parsed JSON missing required fields: {data}", style="warning")
         raise ValueError("JSON missing 'nodes' or 'edges'.")
 
     return ChainOfThought(nodes=data["nodes"], edges=data["edges"])
-
-
-def summarize_text(text: str, max_sentences: int = 1) -> str:
-    sentences = re.split(r"(?<=[.!?])\s+", text)
-    return " ".join(sentences[:max_sentences])
-
-
-def extract_balanced_json(text: str) -> str:
-    """
-    Extracts the first balanced JSON object from the given text.
-
-    Args:
-        text (str): The text containing a JSON block.
-
-    Returns:
-        str: The extracted JSON string.
-
-    Raises:
-        ValueError: If no balanced JSON object is found.
-    """
-    start = text.find("{")
-    if start == -1:
-        raise ValueError("No JSON object found in the text.")
-    stack = []
-    for i, char in enumerate(text[start:], start=start):
-        if char == "{":
-            stack.append("{")
-        elif char == "}":
-            stack.pop()
-            if not stack:
-                candidate = text[start : i + 1]
-                try:
-                    # Re-serialize to ensure it's clean
-                    parsed = json.loads(candidate)
-                    return json.dumps(parsed)
-                except json.JSONDecodeError as e:
-                    raise ValueError(f"Extracted JSON is invalid: {e}")
-    raise ValueError("Unbalanced JSON braces in the text.")
-
-
-def extract_and_clean_json(text: str) -> str:
-    """
-    Extracts the first balanced JSON object from the text and cleans it by re-serializing.
-
-    Args:
-        text (str): The text containing a JSON block.
-
-    Returns:
-        str: A clean JSON string.
-
-    Raises:
-        ValueError: If no valid JSON object is found or it is invalid.
-    """
-    raw_json = extract_balanced_json(text)
-    try:
-        parsed = json.loads(raw_json)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Extracted JSON is invalid: {e}")
-    return json.dumps(parsed)
 
 
 class ContextNode(BaseModel):
@@ -225,63 +128,6 @@ class ContextNode(BaseModel):
         description="The timestamp when the context node was created.",
         default_factory=lambda: datetime.now(timezone.utc),
     )
-
-
-class SeedData(BaseModel):
-    node_id: str
-    content: str
-    metadata: dict
-
-
-def clean_text(text: str) -> str:
-    """Clean text by removing extra whitespace and newlines."""
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def deduplicate_context(
-    context_texts: List[str],
-    sentence_model: SentenceTransformer,
-    threshold: float = 0.85,
-) -> List[str]:
-    """
-    Remove context entries that are nearly identical based on cosine similarity.
-    """
-    unique_contexts = []
-    embeddings = []
-    for text in context_texts:
-        emb = sentence_model.encode(text, convert_to_numpy=True)
-        duplicate = False
-        for existing_emb in embeddings:
-            if (
-                cosine_similarity(emb.reshape(1, -1), existing_emb.reshape(1, -1))[0][0]
-                > threshold
-            ):
-                duplicate = True
-                break
-        if not duplicate:
-            unique_contexts.append(text)
-            embeddings.append(emb)
-    return unique_contexts
-
-
-def trim_prompt(extended_prompt: str, tokenizer, max_tokens: int = 800) -> str:
-    """
-    Ensure the extended prompt does not exceed a maximum token count.
-    """
-    tokens = tokenizer.encode(extended_prompt)
-    if len(tokens) <= max_tokens:
-        return extended_prompt
-    lines = extended_prompt.split("\n")
-    trimmed_lines = []
-    current_tokens = 0
-    for line in lines:
-        line_tokens = tokenizer.encode(line)
-        if current_tokens + len(line_tokens) <= max_tokens:
-            trimmed_lines.append(line)
-            current_tokens += len(line_tokens)
-        else:
-            break
-    return "\n".join(trimmed_lines)
 
 
 def build_initial_graph() -> nx.DiGraph:
@@ -329,9 +175,11 @@ class ContextGraphManager:
 
     def __init__(
         self,
-        tokenizer: AutoTokenizer | None = None,
-        model: AutoModelForCausalLM | None = None,
+        tokenizer: Optional["AutoTokenizer"] = None,
+        model: Optional["AutoModelForCausalLM"] = None,
         initial_graph: None | nx.DiGraph = None,
+        sentence_model: SentenceTransformer | None = None,
+        embedding_index: FastEmbeddingIndex | None = None,
     ):
         if initial_graph is None:
             self.graph = build_initial_graph()
@@ -340,8 +188,8 @@ class ContextGraphManager:
         self.tokenizer = tokenizer or get_tokenizer()
         self.model = model or get_llm_model()
         self.model.eval()
-        self.sentence_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.embedding_index = FastEmbeddingIndex()
+        self.sentence_model = sentence_model or SentenceTransformer(EMBEDDING_MODEL)
+        self.embedding_index = embedding_index or FastEmbeddingIndex()
 
     def graph_to_json(self):
         """Converts the graph to a JSON-serializable format."""
@@ -390,17 +238,15 @@ class ContextGraphManager:
 
         console.log(f"[Query] Top-{top_k} nodes for query '{query}':", style="context")
         query_emb = self.sentence_model.encode(query)
-        _query_result = self.embedding_index.query(
+
+        # Call query only once
+        result_nodes = self.embedding_index.query(
             embedding=query_emb,
             top_k=top_k,
         )
-        console.log(f"[Query Result] {_query_result}", style="context")
-        indices, _ = self.embedding_index.query(query_emb, top_k)
+        console.log(f"[Query Result] {result_nodes}", style="context")
 
-        if not indices or not indices[0]:  # added check.
-            return []
-
-        return [self.nodes[i] for i in indices[0]]
+        return result_nodes
 
     def _manual_query_context(self, query: str, top_k: int = 3) -> List[str]:
         """
@@ -545,7 +391,11 @@ class ContextGraphManager:
                 self.graph.remove_node(node_id)
 
 
-def generate_with_context(query: str, context_manager: ContextGraphManager) -> str:
+def generate_with_context(
+    query: str,
+    context_manager: ContextGraphManager,
+    max_new_tokens: int = MAX_NEW_TOKENS,
+) -> str:
     """
     Constructs an extended reasoning prompt where the LLM explicitly navigates the graph.
     """
@@ -577,7 +427,7 @@ def generate_with_context(query: str, context_manager: ContextGraphManager) -> s
 [Generated Knowledge Graph Update]:
 """
 
-    logging.debug(f"Prompt: {extended_prompt}")
+    console.log(f"Prompt: {extended_prompt}", style="prompt")
 
     # Tokenize and generate response
     inputs = context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
@@ -585,7 +435,7 @@ def generate_with_context(query: str, context_manager: ContextGraphManager) -> s
     )
 
     generation_config = GenerationConfig(
-        max_new_tokens=200,
+        max_new_tokens=max_new_tokens,
         do_sample=True,
         top_p=0.9,
         top_k=50,
@@ -598,25 +448,14 @@ def generate_with_context(query: str, context_manager: ContextGraphManager) -> s
         )
 
     structured_reasoning_output = context_manager.tokenizer.decode(
-        output[0], skip_special_tokens=True
+        output[0],
+        skip_special_tokens=True,
     )
 
-    logging.debug(f"Raw LLM Output: {structured_reasoning_output}")
+    # Uncomment to view raw LLM output
+    # console.log(f"Raw LLM Output: {structured_reasoning_output}", style="llm")
 
     return structured_reasoning_output
-
-
-def get_llm_model(model_name: str = MODEL_NAME) -> AutoModelForCausalLM:
-    return AutoModelForCausalLM.from_pretrained(
-        model_name, return_dict_in_generate=True, torch_dtype=torch.float16
-    ).to(DEVICE)
-
-
-def get_tokenizer(model_name: str = MODEL_NAME) -> AutoTokenizer:
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    return tokenizer
 
 
 def get_context_mgr(model_name: str = MODEL_NAME) -> ContextGraphManager:
