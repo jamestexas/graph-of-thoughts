@@ -108,7 +108,12 @@ class ContextGraphManager:
         if initial_graph is None:
             initial_graph = build_initial_graph()
         console.log(f"Initializing graph storage with {len(initial_graph)} nodes.")
-        self.graph_storage = GraphStorage(initial_graph)
+        self.sentence_model = sentence_model or get_sentence_transformer(
+            model_name=EMBEDDING_MODEL,
+        )
+        self.graph_storage = GraphStorage(
+            initial_graph=initial_graph,
+        )
 
         self.embedding_engine = EmbeddingEngine(sentence_model=sentence_model)
         self.reasoning_engine = ReasoningEngine(
@@ -125,7 +130,6 @@ class ContextGraphManager:
         self.model.eval()
 
         # Initialize sentence model if provided or use default
-        self.sentence_model = sentence_model or self.embedding_engine.sentence_model
 
     def add_context(
         self,
