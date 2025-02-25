@@ -164,9 +164,7 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(
-                    created_at_str.replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:
@@ -246,7 +244,7 @@ class EmbeddingEngine:
         query_emb = self.sentence_model.encode(query, convert_to_numpy=True)
 
         # Search index
-        distances, indices = self.index.search(
+        _, indices = self.index.search(
             np.array([query_emb], dtype=np.float32),
             min(top_k, len(self.nodes)),  # Don't request more than we have
         )

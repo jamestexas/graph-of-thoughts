@@ -34,7 +34,7 @@ SAMPLE_LLM_RESPONSES = [
         "Neural Networks": "Computing systems inspired by biological neural networks",
         "Applications": "Various practical uses of neural networks",
         "Image Recognition": "Using neural networks to identify objects in images",
-        "Natural Language Processing": "Using neural networks to understand and generate human language" 
+        "Natural Language Processing": "Using neural networks to understand and generate human language"
     },
     "edges": [
         ["Neural Networks", "Applications"],

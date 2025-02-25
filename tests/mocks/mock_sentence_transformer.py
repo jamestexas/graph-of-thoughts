@@ -44,6 +44,7 @@ class MockSentenceTransformer:
         """
         Mock implementation of the encode method.
         Returns deterministic embeddings based on the input text.
+        NOTE: Returns numpy arrays (not lists) to support matrix operations like @
         """
         if isinstance(sentences, str):
             sentences = [sentences]
@@ -63,6 +64,7 @@ class MockSentenceTransformer:
 
             result.append(embedding)
 
+        # Important: Return as numpy array, not a list!
         return np.array(result)
 
     def compute_similarity(self, text1, text2):
