@@ -1,0 +1,828 @@
+[
+    {
+        "turn": 1,
+        "user_input": "How can I improve the caching mechanism without increasing latency?",
+        "llm_response": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+        "retrieved_context": [
+            "user_1",
+            "llm_1",
+            "llm_1"
+        ],
+        "graph_before": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9999844398727634
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8999859960521878
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.899985996077834
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "graph_after": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9999844398727634
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8999859960521878
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.899985996077834
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "importance": 1.0,
+                        "node_id": "user_1"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "importance": 1.0,
+                        "node_id": "llm_1"
+                    },
+                    "id": "llm_1"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "metrics": {
+            "nodes": {
+                "precision": 0.6,
+                "recall": 1.0,
+                "f1": 0.7499999999999999
+            },
+            "edges": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0
+            },
+            "extra_nodes": [
+                "llm_1",
+                "user_1"
+            ],
+            "missing_nodes": [],
+            "extra_edges": [],
+            "missing_edges": []
+        }
+    },
+    {
+        "turn": 2,
+        "user_input": "What strategies can reduce database load during peak hours?",
+        "llm_response": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+        "retrieved_context": [
+            "user_2",
+            "user_1",
+            "llm_2"
+        ],
+        "graph_before": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9998275955461182
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.899844836388961
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8998448364787088
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "importance": 1.0,
+                        "node_id": "user_1"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "importance": 1.0,
+                        "node_id": "llm_1"
+                    },
+                    "id": "llm_1"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "graph_after": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9998275955461182
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.899844836388961
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8998448364787088
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "node_id": "user_1",
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "metadata": {
+                            "importance": 0.9999999999572556
+                        },
+                        "created_at": "2025-02-25T04:05:54.362265+00:00"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_1",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "metadata": {
+                            "importance": 1.0
+                        },
+                        "created_at": "2025-02-25T04:05:54.362270+00:00"
+                    },
+                    "id": "llm_1"
+                },
+                {
+                    "data": {
+                        "content": "What strategies can reduce database load during peak hours?",
+                        "importance": 1.0,
+                        "node_id": "user_2"
+                    },
+                    "id": "user_2"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+                        "importance": 1.0,
+                        "node_id": "llm_2"
+                    },
+                    "id": "llm_2"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "metrics": {
+            "nodes": {
+                "precision": 0.7142857142857143,
+                "recall": 1.0,
+                "f1": 0.8333333333333333
+            },
+            "edges": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0
+            },
+            "extra_nodes": [
+                "llm_2",
+                "user_2"
+            ],
+            "missing_nodes": [],
+            "extra_edges": [],
+            "missing_edges": []
+        }
+    },
+    {
+        "turn": 3,
+        "user_input": "Can we optimize the cache eviction policy for better performance?",
+        "llm_response": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: Can we optimize the cache eviction policy for better performance?\n[Current Navigation Path]: user_3 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"$schema\": \"https://json-schema.org/draft-07/schema#\",\n  \"title\": \"Updated Knowledge Graph\",\n  \"description\": \"Expanded and optimized knowledge graph for better performance\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"root\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subA\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"user_1\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"llm_1\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"cache_eviction_policy\": {\n                      \"type\": \"string\",\n                      \"enum\": [\"LRU\", \"FIFO\", \"Optimistic\"]\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n\n[Resulting Knowledge Graph]\nThe resulting graph is an updated structure with added",
+        "retrieved_context": [
+            "user_3",
+            "user_1",
+            "llm_3"
+        ],
+        "graph_before": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9995591408233001
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8996032273562183
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8996032275100304
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "node_id": "user_1",
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "metadata": {
+                            "importance": 0.9998883282667504
+                        },
+                        "created_at": "2025-02-25T04:05:54.362265+00:00"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_1",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "metadata": {
+                            "importance": 0.9998883283664762
+                        },
+                        "created_at": "2025-02-25T04:05:54.362270+00:00"
+                    },
+                    "id": "llm_1"
+                },
+                {
+                    "data": {
+                        "content": "What strategies can reduce database load during peak hours?",
+                        "importance": 1.0,
+                        "node_id": "user_2"
+                    },
+                    "id": "user_2"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+                        "importance": 1.0,
+                        "node_id": "llm_2"
+                    },
+                    "id": "llm_2"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "graph_after": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9995591408233001
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8996032273562183
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8996032275100304
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "node_id": "user_1",
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "metadata": {
+                            "importance": 0.9998883282667504
+                        },
+                        "created_at": "2025-02-25T04:05:54.362265+00:00"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_1",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "metadata": {
+                            "importance": 0.9998883283664762
+                        },
+                        "created_at": "2025-02-25T04:05:54.362270+00:00"
+                    },
+                    "id": "llm_1"
+                },
+                {
+                    "data": {
+                        "node_id": "user_2",
+                        "content": "What strategies can reduce database load during peak hours?",
+                        "metadata": {
+                            "importance": 0.9999999999715037
+                        },
+                        "created_at": "2025-02-25T04:06:02.200344+00:00"
+                    },
+                    "id": "user_2"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_2",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+                        "metadata": {
+                            "importance": 1.0
+                        },
+                        "created_at": "2025-02-25T04:06:02.200348+00:00"
+                    },
+                    "id": "llm_2"
+                },
+                {
+                    "data": {
+                        "content": "Can we optimize the cache eviction policy for better performance?",
+                        "importance": 1.0,
+                        "node_id": "user_3"
+                    },
+                    "id": "user_3"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: Can we optimize the cache eviction policy for better performance?\n[Current Navigation Path]: user_3 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"$schema\": \"https://json-schema.org/draft-07/schema#\",\n  \"title\": \"Updated Knowledge Graph\",\n  \"description\": \"Expanded and optimized knowledge graph for better performance\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"root\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subA\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"user_1\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"llm_1\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"cache_eviction_policy\": {\n                      \"type\": \"string\",\n                      \"enum\": [\"LRU\", \"FIFO\", \"Optimistic\"]\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n\n[Resulting Knowledge Graph]\nThe resulting graph is an updated structure with added",
+                        "importance": 1.0,
+                        "node_id": "llm_3"
+                    },
+                    "id": "llm_3"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "metrics": {
+            "nodes": {
+                "precision": 0.7777777777777778,
+                "recall": 1.0,
+                "f1": 0.8750000000000001
+            },
+            "edges": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0
+            },
+            "extra_nodes": [
+                "llm_3",
+                "user_3"
+            ],
+            "missing_nodes": [],
+            "extra_edges": [],
+            "missing_edges": []
+        }
+    },
+    {
+        "turn": 4,
+        "user_input": "What are some best practices for scaling the caching system?",
+        "llm_response": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What are some best practices for scaling the caching system?\n[Current Navigation Path]: user_4 \u2192 user_1 \u2192 user_3\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n  - llm_3: No description\n  - user_4: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"root\": {\n      \"name\": \"root\",\n      \"description\": \"\"\n    },\n    \"subA\": {\n      \"name\": \"subA\",\n      \"description\": \"\"\n    },\n    \"subB\": {\n      \"name\": \"subB\",\n      \"description\": \"\"\n    },\n    \"user_1\": {\n      \"name\": \"user_1\",\n      \"description\": \"\"\n    },\n    \"llm_1\": {\n      \"name\": \"llm_1\",\n      \"description\": \"\"\n    },\n    \"user_2\": {\n      \"name\": \"user_2\",\n      \"description\": \"\"\n    },\n    \"llm_2\": {\n      \"name\": \"llm_2\",\n      \"description\": \"\"\n    },\n    \"user_3\": {\n      \"name\": \"user_3\",\n      \"description\": \"\"\n    },\n    \"llm_3\": {\n      \"name",
+        "retrieved_context": [
+            "user_4",
+            "user_1",
+            "user_3"
+        ],
+        "graph_before": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9991789828824356
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8992610854526493
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8992610856320284
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "node_id": "user_1",
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "metadata": {
+                            "importance": 0.9996648393685329
+                        },
+                        "created_at": "2025-02-25T04:05:54.362265+00:00"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_1",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "metadata": {
+                            "importance": 0.9996648395252099
+                        },
+                        "created_at": "2025-02-25T04:05:54.362270+00:00"
+                    },
+                    "id": "llm_1"
+                },
+                {
+                    "data": {
+                        "node_id": "user_2",
+                        "content": "What strategies can reduce database load during peak hours?",
+                        "metadata": {
+                            "importance": 0.9998881453980999
+                        },
+                        "created_at": "2025-02-25T04:06:02.200344+00:00"
+                    },
+                    "id": "user_2"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_2",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+                        "metadata": {
+                            "importance": 0.9998881454693326
+                        },
+                        "created_at": "2025-02-25T04:06:02.200348+00:00"
+                    },
+                    "id": "llm_2"
+                },
+                {
+                    "data": {
+                        "content": "Can we optimize the cache eviction policy for better performance?",
+                        "importance": 1.0,
+                        "node_id": "user_3"
+                    },
+                    "id": "user_3"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: Can we optimize the cache eviction policy for better performance?\n[Current Navigation Path]: user_3 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"$schema\": \"https://json-schema.org/draft-07/schema#\",\n  \"title\": \"Updated Knowledge Graph\",\n  \"description\": \"Expanded and optimized knowledge graph for better performance\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"root\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subA\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"user_1\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"llm_1\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"cache_eviction_policy\": {\n                      \"type\": \"string\",\n                      \"enum\": [\"LRU\", \"FIFO\", \"Optimistic\"]\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n\n[Resulting Knowledge Graph]\nThe resulting graph is an updated structure with added",
+                        "importance": 1.0,
+                        "node_id": "llm_3"
+                    },
+                    "id": "llm_3"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "graph_after": {
+            "directed": true,
+            "multigraph": false,
+            "graph": {},
+            "nodes": [
+                {
+                    "data": {
+                        "node_id": "root",
+                        "content": "Top-level concept",
+                        "metadata": {
+                            "importance": 0.9991789828824356
+                        },
+                        "created_at": "2025-02-25T04:05:43.353161+00:00"
+                    },
+                    "id": "root"
+                },
+                {
+                    "data": {
+                        "node_id": "subA",
+                        "content": "A sub concept under root",
+                        "metadata": {
+                            "importance": 0.8992610854526493
+                        },
+                        "created_at": "2025-02-25T04:05:43.353183+00:00"
+                    },
+                    "id": "subA"
+                },
+                {
+                    "data": {
+                        "node_id": "subB",
+                        "content": "Another sub concept under root",
+                        "metadata": {
+                            "importance": 0.8992610856320284
+                        },
+                        "created_at": "2025-02-25T04:05:43.353189+00:00"
+                    },
+                    "id": "subB"
+                },
+                {
+                    "data": {
+                        "node_id": "user_1",
+                        "content": "How can I improve the caching mechanism without increasing latency?",
+                        "metadata": {
+                            "importance": 0.9996648393685329
+                        },
+                        "created_at": "2025-02-25T04:05:54.362265+00:00"
+                    },
+                    "id": "user_1"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_1",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: How can I improve the caching mechanism without increasing latency?\n[Current Navigation Path]: user_1 \u2192 user_1 \u2192 user_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": [\n    {\n      \"id\": \"root\",\n      \"label\": \"root\",\n      \"description\": \"Root concept\"\n    },\n    {\n      \"id\": \"subA\",\n      \"label\": \"subA\",\n      \"description\": \"Subtopic A\"\n    },\n    {\n      \"id\": \"subB\",\n      \"label\": \"subB\",\n      \"description\": \"Subtopic B\"\n    },\n    {\n      \"id\": \"user_1\",\n      \"label\": \"user_1\",\n      \"description\": \"User 1\"\n    },\n    {\n      \"id\": \"caching_mechanism\",\n      \"label\": \"Caching Mechanism\",\n      \"description\": \"Description of caching mechanism\"\n    },\n    {\n      \"id\": \"latency_reduction\",\n      \"label\": \"Latency Reduction\",\n      \"description\": \"Description of reducing latency\"\n    }\n  ],\n  \"edges\": [\n    {\n",
+                        "metadata": {
+                            "importance": 0.9996648395252099
+                        },
+                        "created_at": "2025-02-25T04:05:54.362270+00:00"
+                    },
+                    "id": "llm_1"
+                },
+                {
+                    "data": {
+                        "node_id": "user_2",
+                        "content": "What strategies can reduce database load during peak hours?",
+                        "metadata": {
+                            "importance": 0.9998881453980999
+                        },
+                        "created_at": "2025-02-25T04:06:02.200344+00:00"
+                    },
+                    "id": "user_2"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_2",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What strategies can reduce database load during peak hours?\n[Current Navigation Path]: user_2 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"No description\": {\n      \"id\": \"root\",\n      \"type\": \"root\",\n      \"description\": \"A new concept\u2014 database load reduction\"\n    },\n    \"A query optimization technique\": {\n      \"id\": \"subA\",\n      \"type\": \"subA\",\n      \"description\": \"A query optimization technique\u2014 index rebuild\"\n    },\n    \"Database indexing\": {\n      \"id\": \"subB\",\n      \"type\": \"subB\",\n      \"description\": \"Database indexing\u2014 indexing algorithms\"\n    },\n    \"Caching\": {\n      \"id\": \"user_2\",\n      \"type\": \"user_2\",\n      \"description\": \"Caching\u2014 caching types and algorithms\"\n    },\n    \"Optimization techniques\": {\n      \"id\": \"llm_1\",\n      \"type\": \"llm_1\",\n      \"description\": \"Optimization techniques\u2014 query optimization and caching\"\n    },\n",
+                        "metadata": {
+                            "importance": 0.9998881454693326
+                        },
+                        "created_at": "2025-02-25T04:06:02.200348+00:00"
+                    },
+                    "id": "llm_2"
+                },
+                {
+                    "data": {
+                        "node_id": "user_3",
+                        "content": "Can we optimize the cache eviction policy for better performance?",
+                        "metadata": {
+                            "importance": 0.9999999999715037
+                        },
+                        "created_at": "2025-02-25T04:06:10.051260+00:00"
+                    },
+                    "id": "user_3"
+                },
+                {
+                    "data": {
+                        "node_id": "llm_3",
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: Can we optimize the cache eviction policy for better performance?\n[Current Navigation Path]: user_3 \u2192 user_1 \u2192 llm_1\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"$schema\": \"https://json-schema.org/draft-07/schema#\",\n  \"title\": \"Updated Knowledge Graph\",\n  \"description\": \"Expanded and optimized knowledge graph for better performance\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"root\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"subA\": {\n          \"type\": \"object\",\n          \"properties\": {\n            \"user_1\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"llm_1\": {\n                  \"type\": \"object\",\n                  \"properties\": {\n                    \"cache_eviction_policy\": {\n                      \"type\": \"string\",\n                      \"enum\": [\"LRU\", \"FIFO\", \"Optimistic\"]\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}\n```\n\n\n[Resulting Knowledge Graph]\nThe resulting graph is an updated structure with added",
+                        "metadata": {
+                            "importance": 0.9999999999857518
+                        },
+                        "created_at": "2025-02-25T04:06:10.051264+00:00"
+                    },
+                    "id": "llm_3"
+                },
+                {
+                    "data": {
+                        "content": "What are some best practices for scaling the caching system?",
+                        "importance": 1.0,
+                        "node_id": "user_4"
+                    },
+                    "id": "user_4"
+                },
+                {
+                    "data": {
+                        "content": "\n[Knowledge Graph Navigation]\n- Your goal is to expand relevant concepts based on the **existing graph**.\n- Navigate down from the **root concept** to related subtopics.\n- Prioritize depth over breadth\u2014go deeper before adding new high-level topics.\n\n[Current Query]: What are some best practices for scaling the caching system?\n[Current Navigation Path]: user_4 \u2192 user_1 \u2192 user_3\n\n[Existing Graph Structure]:\n\ud83d\udccc **Current Knowledge Graph**\n\n\ud83d\udfe2 **Nodes**:\n  - root: No description\n  - subA: No description\n  - subB: No description\n  - user_1: No description\n  - llm_1: No description\n  - user_2: No description\n  - llm_2: No description\n  - user_3: No description\n  - llm_3: No description\n  - user_4: No description\n\n\ud83d\udd17 **Edges**:\n  - root \u2192 subA\n  - root \u2192 subB \n\n[Reasoning Instructions]:\n1\ufe0f\u20e3 Identify missing knowledge gaps in the structure.\n2\ufe0f\u20e3 Expand deeper where necessary\u2014**do not just add random new nodes.**\n3\ufe0f\u20e3 Maintain a logical structure using causality and dependencies.\n4\ufe0f\u20e3 Output only **valid JSON inside <json>...</json>** tags.\n\n[Generated Knowledge Graph Update]:\n```json\n{\n  \"nodes\": {\n    \"root\": {\n      \"name\": \"root\",\n      \"description\": \"\"\n    },\n    \"subA\": {\n      \"name\": \"subA\",\n      \"description\": \"\"\n    },\n    \"subB\": {\n      \"name\": \"subB\",\n      \"description\": \"\"\n    },\n    \"user_1\": {\n      \"name\": \"user_1\",\n      \"description\": \"\"\n    },\n    \"llm_1\": {\n      \"name\": \"llm_1\",\n      \"description\": \"\"\n    },\n    \"user_2\": {\n      \"name\": \"user_2\",\n      \"description\": \"\"\n    },\n    \"llm_2\": {\n      \"name\": \"llm_2\",\n      \"description\": \"\"\n    },\n    \"user_3\": {\n      \"name\": \"user_3\",\n      \"description\": \"\"\n    },\n    \"llm_3\": {\n      \"name",
+                        "importance": 1.0,
+                        "node_id": "llm_4"
+                    },
+                    "id": "llm_4"
+                }
+            ],
+            "links": [
+                {
+                    "source": "root",
+                    "target": "subA"
+                },
+                {
+                    "source": "root",
+                    "target": "subB"
+                }
+            ]
+        },
+        "metrics": {
+            "nodes": {
+                "precision": 0.8181818181818182,
+                "recall": 1.0,
+                "f1": 0.9
+            },
+            "edges": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1": 1.0
+            },
+            "extra_nodes": [
+                "user_4",
+                "llm_4"
+            ],
+            "missing_nodes": [],
+            "extra_edges": [],
+            "missing_edges": []
+        }
+    }
+]

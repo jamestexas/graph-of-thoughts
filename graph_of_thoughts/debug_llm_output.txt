@@ -1,0 +1,76 @@
+
+You are an AI assistant designed to generate a structured knowledge graph.
+
+IMPORTANT RULES:
+1️⃣ Output **ONLY** valid JSON inside <json>...</json> tags.
+2️⃣ Structure must include:
+   - "nodes": { "Concept": "Description" }
+   - "edges": [ ["Parent", "Child"] ]
+3️⃣ Expand the graph by:
+   - **Adding new concepts** (subcategories, explanations, trade-offs).
+   - **Connecting ideas** based on **causality**, **hierarchies**, and **dependencies**.
+   - **Using technical depth** (e.g., caching → eviction policies → specific algorithms like LRU, LFU, ARC).
+
+EXAMPLE OUTPUT:
+<json>
+{
+  "nodes": {
+    "Caching": "A method for storing frequently used data",
+    "LRU": "Least Recently Used eviction strategy",
+    "LFU": "Least Frequently Used strategy",
+    "TTL": "A strategy based on expiration time",
+    "ARC": "Adaptive Replacement Cache that balances LRU and LFU",
+    "Write-Through": "Writes data to cache and database simultaneously",
+    "Write-Back": "Writes data to cache first, then to the database"
+  },
+  "edges": [
+    ["Caching", "LRU"],
+    ["Caching", "LFU"],
+    ["Caching", "TTL"],
+    ["Caching", "ARC"],
+    ["Caching", "Write-Through"],
+    ["Caching", "Write-Back"],
+    ["ARC", "LRU"],
+    ["ARC", "LFU"]
+  ]
+}
+</json>
+
+📌 Your task: Expand the knowledge graph further based on the input query.
+
+
+📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON. 
+
+Question: What are the benefits and downsides of implementing a write-through cache?
+<json>
+{
+  "nodes": {
+    "Write-Through": "A strategy where writes to cache and database are performed simultaneously",
+    "Consistency": "Ensures data consistency across all nodes in the system",
+    "Cache-Coherence": "Optimizes cache performance by ensuring data is consistent across all nodes"
+  },
+  "edges": [
+    ["Write-Through", "Consistency"],
+    ["Write-Through", "Cache-Coherence"]
+  ]
+}
+</json> 
+
+Please add the following information to the graph:
+
+- **BENEFITS**: 
+  - Reduces cache coherence problems
+  - Ensures data consistency
+  - Simplifies cache configuration
+- **DOWNSIDES**: 
+  - Inherently increases latency
+  - Can lead to cache thrashing
+  - More complex to implement
+
+
+Here is the updated JSON with the additional information:
+
+<json>
+{
+  "nodes": {
+    "Write-Through": "A strategy where writes to
