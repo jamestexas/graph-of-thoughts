@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+**/debug_llm_output.txt
 # Distribution / packaging
 .Python
 build/
