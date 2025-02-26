@@ -141,7 +141,7 @@ def extract_json_substring(raw_output: str) -> dict[str, Any] | None:
 
         logger.info("✅ Successfully parsed and validated JSON!")
         return parsed_json
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         logger.error(f"❌ JSON parsing failed: {e}")
         return None
 

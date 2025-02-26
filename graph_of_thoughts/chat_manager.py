@@ -3,6 +3,7 @@
 import json
 import os
 from datetime import datetime
+import re
 from typing import Any
 
 import networkx as nx
@@ -13,7 +14,19 @@ from graph_of_thoughts.constants import MAX_NEW_TOKENS, OUTPUT_DIR, console
 from graph_of_thoughts.context_manager import ContextGraphManager, seed_nodes
 from graph_of_thoughts.evaluate_llm_graph import GraphMetrics, KnowledgeGraph
 from graph_of_thoughts.models import SeedData
-from graph_of_thoughts.utils import extract_and_clean_json
+
+
+def extract_sections(response: str) -> tuple[str, str]:
+    """
+    Extract the internal JSON block and the final answer from the response.
+    Expected format:
+        ... <internal> ... </internal> ... <final> ... </final> ...
+    """
+    internal_match = re.search(r"<internal>(.*?)</internal>", response, re.DOTALL)
+    final_match = re.search(r"<final>(.*?)</final>", response, re.DOTALL)
+    internal = internal_match.group(1).strip() if internal_match else "{}"
+    final = final_match.group(1).strip() if final_match else response.strip()
+    return internal, final
 
 
 class ChatManager:
@@ -26,16 +39,14 @@ class ChatManager:
         self.context_manager = context_manager
 
     def generate_response(
-        self, query: str, max_new_tokens: int = MAX_NEW_TOKENS
+        self,
+        query: str,
+        max_new_tokens: int = MAX_NEW_TOKENS,
     ) -> str:
-        """Generate a response for a query using the context graph."""
         # Get relevant nodes
         relevant_nodes = self.context_manager.query_context(query, top_k=3)
-
-        # Build navigation path
         navigation_path = " → ".join(relevant_nodes)
-
-        # Construct prompt
+        # Construct prompt with two distinct sections
         extended_prompt = f"""
 [Knowledge Graph Navigation]
 - Your goal is to expand relevant concepts based on the **existing graph**.
@@ -44,7 +55,6 @@ class ChatManager:
 
 [Current Query]: {query}
 [Current Navigation Path]: {navigation_path}
-
 [Existing Graph Structure]:
 {self.context_manager.visualize_graph_as_text()}
 
@@ -52,18 +62,15 @@ class ChatManager:
 1️⃣ Identify missing knowledge gaps in the structure.
 2️⃣ Expand deeper where necessary—**do not just add random new nodes.**
 3️⃣ Maintain a logical structure using causality and dependencies.
-4️⃣ Output only **valid JSON inside <json>...</json>** tags.
+4️⃣ Output only **valid JSON inside <internal>...</internal>** tags for graph updates.
+5️⃣ Then, output the final answer for the user inside <final>...</final> tags.
 
 [Generated Knowledge Graph Update]:
 """
-
         console.log(f"Prompt: {extended_prompt}", style="prompt")
-
-        # Tokenize and generate
         inputs = self.context_manager.tokenizer(
             extended_prompt, return_tensors="pt"
         ).to(self.context_manager.model.device)
-
         generation_config = GenerationConfig(
             max_new_tokens=max_new_tokens,
             do_sample=True,
@@ -71,13 +78,10 @@ class ChatManager:
             top_k=50,
             pad_token_id=self.context_manager.tokenizer.eos_token_id,
         )
-
         with torch.no_grad():
             output = self.context_manager.model.generate(
                 **inputs, generation_config=generation_config
             )
-
-        # Decode and return
         return self.context_manager.tokenizer.decode(
             output[0], skip_special_tokens=True
         )
@@ -85,34 +89,31 @@ class ChatManager:
     def process_turn(self, user_input: str, conversation_turn: int) -> str:
         """Process a single conversation turn."""
         # Decay node importance
-        self.context_manager.decay_importance(
-            decay_factor=0.95,
-            adaptive=True,
-        )
+        self.context_manager.decay_importance(decay_factor=0.95, adaptive=True)
 
-        # Log user input
-        console.log(
-            f"[User {conversation_turn}]: {user_input}",
-            style="user",
-        )
-
-        # Add user input to context
+        # Log user input and add to context
+        console.log(f"[User {conversation_turn}]: {user_input}", style="user")
         self.context_manager.add_context(f"user_{conversation_turn}", user_input)
 
-        # Retrieve relevant context
+        # Retrieve relevant context for logging
         retrieved_context = self.context_manager.query_context(user_input, top_k=3)
         console.log(f"[Context Retrieved]: {retrieved_context}", style="context")
 
-        # Generate response
+        # Generate full response
         response = self.generate_response(user_input)
-        console.log(f"[LLM Response {conversation_turn}]: {response}", style="llm")
 
-        # Add response to context
-        self.context_manager.add_context(f"llm_{conversation_turn}", response)
+        # Extract internal reasoning (for graph update) and final answer (for the user)
+        internal_json, final_response = extract_sections(response)
+        console.log(
+            f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm"
+        )
 
-        # Extract reasoning and update graph
+        # Add final answer to context
+        self.context_manager.add_context(f"llm_{conversation_turn}", final_response)
+
+        # Update graph with internal JSON reasoning
         try:
-            reasoning_output = extract_and_clean_json(response)
+            reasoning_output = json.loads(internal_json)
             self.context_manager.iterative_refinement(reasoning_output)
         except Exception as e:
             console.log(
@@ -122,8 +123,7 @@ class ChatManager:
 
         # Prune low-importance nodes
         self.context_manager.prune_context(threshold=0.8)
-
-        return response
+        return final_response
 
     def simulate_conversation(
         self,

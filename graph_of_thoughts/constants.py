@@ -47,6 +47,7 @@ SYSTEM_PROMPT = """
 You are an AI assistant designed to generate a structured knowledge graph.
 
 IMPORTANT RULES:
+
 1️⃣ Output **ONLY** valid JSON inside <json>...</json> tags.
 2️⃣ Structure must include:
     - "nodes": { "Concept": "Description" }

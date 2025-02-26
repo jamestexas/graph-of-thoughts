@@ -89,20 +89,20 @@ class TestChatManager(unittest.TestCase):
         self.context_manager.tokenizer.decode.assert_called_once()
         self.assertEqual(response, "Mock LLM response")
 
-    @patch("graph_of_thoughts.chat_manager.extract_and_clean_json")
+    @patch("graph_of_thoughts.chat_manager.extract_sections")
     @patch("graph_of_thoughts.chat_manager.console")
-    def test_process_turn(self, mock_console, mock_extract_json):
+    def test_process_turn(self, mock_console, mock_extract_sections):
         """Test processing a single conversation turn."""
         # Setup
         user_input = "Test user input"
         conversation_turn = 1
 
-        # Configure mocks
-        mock_extract_json.return_value = {"nodes": [], "edges": []}
+        # Configure the helper to return (internal_json, final_response)
+        mock_extract_sections.return_value = ("{}", "Mock LLM response")
 
-        # Create a mock for the generate_response method to avoid having to mock the full LLM chain
+        # Create a mock for generate_response to avoid the full LLM chain
         self.chat_manager.generate_response = MagicMock(
-            return_value="Mock LLM response"
+            return_value="Some text with <internal>{}</internal> and <final>Mock LLM response</final>"
         )
 
         # Call the method

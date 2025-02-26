@@ -77,7 +77,7 @@ def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
 
     try:
         data = json.loads(json_string)
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         console.log(
             f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string}",
             style="warning",
