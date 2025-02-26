@@ -36,7 +36,7 @@ LLM_PATH: Path = Path(OUTPUT_DIR, "llm_graph.json")
 # Embedding settings
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMBEDDING_DIMENSION = 384
-
+EMBEDDING_CACHE_SIZE = 1000  # max number of embeddings to cache
 # Thresholds
 SIMILARITY_THRESHOLD = 0.75
 IMPORTANCE_DECAY_FACTOR = 0.95

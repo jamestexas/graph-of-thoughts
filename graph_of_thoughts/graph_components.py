@@ -1,7 +1,8 @@
 # graph_of_thoughts/graph_components.py
 
-from datetime import datetime, timezone
+import hashlib
 import json
+from datetime import datetime, timezone
 from typing import Self
 
 import faiss
@@ -10,6 +11,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from graph_of_thoughts.constants import (
+    EMBEDDING_CACHE_SIZE,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL,
     IMPORTANCE_DECAY_FACTOR,
@@ -186,9 +188,7 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(
-                    created_at_str.replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:
@@ -245,6 +245,7 @@ class EmbeddingEngine:
         self,
         dimension: int = EMBEDDING_DIMENSION,
         sentence_model: SentenceTransformer | None = None,
+        cache_size: int = EMBEDDING_CACHE_SIZE,  # Maximum number of embeddings to cache
     ):
         """Initialize the embedding engine with a FAISS index."""
         self.sentence_model = sentence_model or get_sentence_transformer(
@@ -253,27 +254,81 @@ class EmbeddingEngine:
         self.index = faiss.IndexFlatL2(dimension)
         self.nodes = []  # Parallel array to track node IDs
 
+        # Content hash -> embedding cache
+        self._embedding_cache = {}
+        self._cache_size = cache_size
+        self._cache_hits = 0
+        self._cache_misses = 0
+
+    def _get_content_hash(self, content: str) -> str:
+        """Generate a stable hash for content to use as cache key."""
+        # TODO: Revisit if we should use a rolling hash or similar
+        return hashlib.md5(content.encode("utf-8")).hexdigest()
+
+    def _check_cache(self, content: str) -> tuple[bool, np.ndarray | None]:
+        """Check if embedding for content is in cache."""
+        content_hash = self._get_content_hash(content)
+        if content_hash in self._embedding_cache:
+            self._cache_hits += 1
+            return True, self._embedding_cache[content_hash]
+        self._cache_misses += 1
+        return False, None
+
+    def _update_cache(self, content: str, embedding: np.ndarray) -> None:
+        """Update the embedding cache, removing oldest entries if needed."""
+        content_hash = self._get_content_hash(content)
+
+        # If cache is full, remove oldest entry (simple LRU strategy)
+        if len(self._embedding_cache) >= self._cache_size:
+            oldest_key = next(iter(self._embedding_cache))
+            del self._embedding_cache[oldest_key]
+
+        self._embedding_cache[content_hash] = embedding
+
     def add_node_embedding(self, node_id: str, content: str) -> None:
-        """Compute and add a node's embedding to the index."""
-        embedding = self.sentence_model.encode(
-            content,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        """Compute and add a node's embedding to the index, using cache if available."""
+        # Check cache first
+        cache_hit, embedding = self._check_cache(content)
+
+        if not cache_hit:
+            # Compute new embedding
+            embedding = self.sentence_model.encode(
+                content,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
+            # Update cache
+            self._update_cache(content, embedding)
+
         self.nodes.append(node_id)
         self.index.add(np.array([embedding], dtype=np.float32))
 
+        # Log cache performance periodically
+        total_requests = self._cache_hits + self._cache_misses
+        if total_requests % 100 == 0 and total_requests > 0:
+            hit_rate = self._cache_hits / total_requests * 100
+            console.log(
+                f"Embedding cache hit rate: {hit_rate:.2f}% ({self._cache_hits}/{total_requests})",
+                style="info",
+            )
+
     def find_similar_nodes(self, query: str, top_k: int = 3) -> list[str]:
-        """Find nodes most similar to the query."""
+        """Find nodes most similar to the query, using cached embedding if available."""
         if not self.nodes:  # Empty index
             return []
 
-        # Encode query
-        query_emb = self.sentence_model.encode(
-            query,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        # Check cache for query embedding
+        cache_hit, query_emb = self._check_cache(query)
+
+        if not cache_hit:
+            # Encode query
+            query_emb = self.sentence_model.encode(
+                query,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
+            # Update cache
+            self._update_cache(query, query_emb)
 
         # Search index
         _, indices = self.index.search(
@@ -289,12 +344,27 @@ class EmbeddingEngine:
         return result
 
     def compute_similarity(self, text1: str, text2: str) -> float:
-        """Compute semantic similarity between two texts."""
-        embeddings = self.sentence_model.encode(
-            [text1, text2],
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        """Compute semantic similarity between two texts, using cached embeddings if available."""
+        embeddings = []
+
+        for text in [text1, text2]:
+            # Check cache
+            cache_hit, embedding = self._check_cache(text)
+
+            if cache_hit:
+                embeddings.append(embedding)
+            else:
+                # Compute new embedding
+                embedding = self.sentence_model.encode(
+                    text,
+                    convert_to_numpy=True,
+                    show_progress_bar=False,
+                )
+                # Update cache
+                self._update_cache(text, embedding)
+                embeddings.append(embedding)
+
+        # Compute similarity
         similarity = np.dot(embeddings[0], embeddings[1]) / (
             np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])
         )
