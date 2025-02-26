@@ -145,6 +145,16 @@ class GraphStorage:
             # Return a minimal valid JSON string
             return json.dumps({"nodes": [], "links": []})
 
+    def to_json(self) -> dict:
+        """Convert the graph to a JSON-serializable format."""
+        data = nx.node_link_data(self.graph)
+        # Convert node data to serializable format
+        for node in data["nodes"]:
+            for key, value in node.items():
+                if hasattr(value, "model_dump"):
+                    node[key] = value.model_dump()
+        return data
+
     def save_to_file(self, filepath: str) -> None:
         """Save the graph to a JSON file."""
 
