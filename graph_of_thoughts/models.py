@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+import json
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class SeedData(BaseModel):
@@ -27,6 +28,11 @@ class Node(BaseModel):
         default_factory=_get_datetime_utc,
     )
 
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime, _info):
+        """Serialize datetime to ISO format string"""
+        return dt.isoformat()
+
 
 class ContextNode(BaseModel):
     """Data structure for individual nodes in the context graph."""
@@ -50,6 +56,11 @@ class ContextNode(BaseModel):
         """Retrieve a value from the metadata dictionary by key."""
         return self.metadata.get(key, default)
 
+    @field_serializer("created_at")
+    def serialize_dt(self, dt: datetime, _info):
+        """Serialize datetime to ISO format string"""
+        return dt.isoformat()
+
 
 class ChainOfThought(BaseModel):
     """
@@ -72,3 +83,19 @@ class ChainOfThought(BaseModel):
             if not e[0] or not e[1]:
                 raise ValueError(f"Edge has empty source/target: {e}")
         return edges
+
+
+class GraphJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for Graph of Thoughts objects."""
+
+    def default(self, obj: Any) -> Any:
+        # Handle datetime objects
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+
+        # Handle objects with a model_dump method (Pydantic models)
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump()
+
+        # Let the base class handle anything else
+        return super().default(obj)

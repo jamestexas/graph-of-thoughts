@@ -1,6 +1,7 @@
 # graph_of_thoughts/graph_components.py
 
 from datetime import datetime, timezone
+import json
 from typing import Self
 
 import faiss
@@ -114,12 +115,32 @@ class GraphStorage:
     def to_json(self) -> dict:
         """Convert the graph to a JSON-serializable format."""
         data = nx.node_link_data(self.graph)
-        # Convert node data to serializable format
+
+        # Process nodes to ensure they're serialized properly
         for node in data["nodes"]:
-            for key, value in node.items():
-                if hasattr(value, "model_dump"):
-                    node[key] = value.model_dump()
+            node_data = node.get("data", {})
+
+            # If node_data is a Pydantic model, use its serialization
+            if hasattr(node_data, "model_dump"):
+                node["data"] = node_data.model_dump()
+
+            # Further process any nested objects if needed
+            elif isinstance(node_data, dict) and "created_at" in node_data:
+                if isinstance(node_data["created_at"], datetime):
+                    node_data["created_at"] = node_data["created_at"].isoformat()
+
         return data
+
+    def save_to_file(self, filepath: str) -> None:
+        """Save the graph to a JSON file."""
+
+        data = self.to_json()
+        try:
+            with open(filepath, "w") as f:
+                json.dump(data, f, indent=2)
+        except ValueError as e:
+            console.log(f"Error saving graph to {filepath}: {e}", style="warning")
+        return
 
     def visualize_as_text(self) -> str:
         """Generate a text representation of the graph."""
@@ -165,7 +186,9 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                created_at = datetime.fromisoformat(
+                    created_at_str.replace("Z", "+00:00")
+                )
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:

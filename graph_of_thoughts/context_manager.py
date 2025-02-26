@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import faiss
@@ -38,6 +39,16 @@ if TYPE_CHECKING:
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logging.basicConfig(level=logging.INFO)  # Enable debug logs
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles datetime objects."""
+
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        # Let the base class handle anything else
+        return super().default(obj)
 
 
 class FastEmbeddingIndex:
@@ -149,9 +160,45 @@ class ContextGraphManager:
         """Get a text representation of the graph."""
         return self.graph_storage.visualize_as_text()
 
-    def graph_to_json(self) -> str:
-        """Convert the graph to JSON format."""
-        return self.graph_storage.to_json()
+    def graph_to_json(self):
+        """Convert the graph storage to a JSON-serializable format."""
+        try:
+            # Get the raw graph data
+            graph_data = self.graph_storage.to_json()
+
+            # Process nodes to ensure all data is serializable
+            for node in graph_data.get("nodes", []):
+                if "data" in node and isinstance(node["data"], dict):
+                    data = node["data"]
+
+                    # Handle datetime objects
+                    if "created_at" in data and isinstance(data["created_at"], datetime):
+                        data["created_at"] = data["created_at"].isoformat()
+
+                    # Handle other potential non-serializable objects
+                    for key, value in data.items():
+                        if hasattr(value, "model_dump"):
+                            data[key] = value.model_dump()
+
+            return graph_data
+        except Exception as e:
+            console.print(f"[Error] Failed to convert graph to JSON: {e}", style="error")
+            # Return a minimal valid structure
+            return {"nodes": [], "links": []}
+
+    def save_graph_state(self, filepath):
+        """Save the current graph state to a file."""
+        try:
+            graph_data = self.graph_to_json()
+
+            with open(filepath, "w") as f:
+                json.dump(graph_data, f, cls=DateTimeEncoder, indent=2)
+
+            console.print(f"Graph state saved to {filepath}", style="info")
+            return True
+        except Exception as e:
+            console.print(f"[Error] Failed to save graph state: {e}", style="error")
+            return False
 
     def decay_importance(
         self,
@@ -176,9 +223,7 @@ class ContextGraphManager:
             chain_obj = parse_chain_of_thought(reasoning_output)
             self.reasoning_engine.update_from_chain_of_thought(chain_obj)
         except Exception as e:
-            console.log(
-                f"[Error] Failed to parse reasoning output: {e}", style="warning"
-            )
+            console.log(f"[Error] Failed to parse reasoning output: {e}", style="warning")
 
 
 def generate_with_context(
@@ -233,9 +278,7 @@ def generate_with_context(
     )
 
     with torch.no_grad():
-        output = context_manager.model.generate(
-            **inputs, generation_config=generation_config
-        )
+        output = context_manager.model.generate(**inputs, generation_config=generation_config)
 
     # Decode and return
     return context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
@@ -261,9 +304,7 @@ def chat_entry(
 ) -> None:
     """Process a single conversation turn."""
     # Decay node importance
-    context_manager.decay_importance(
-        decay_factor=IMPORTANCE_DECAY_FACTOR, adaptive=True
-    )
+    context_manager.decay_importance(decay_factor=IMPORTANCE_DECAY_FACTOR, adaptive=True)
 
     # Log user input
     console.log(f"[User {conversation_turn}]: {user_input}", style="user")
