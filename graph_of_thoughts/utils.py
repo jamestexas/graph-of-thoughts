@@ -8,7 +8,12 @@ import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from graph_of_thoughts.constants import EMBEDDING_MODEL, MODEL_NAME, SYSTEM_PROMPT, console
+from graph_of_thoughts.constants import (
+    EMBEDDING_MODEL,
+    MODEL_NAME,
+    SYSTEM_PROMPT,
+    console,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -17,42 +22,76 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_torch_device():
-    # Default MPS -> CUDA -> CPU
-
-    if torch.backends.mps.is_available():
-        console.log("MPS is available. Using MPS.")
-        device = "mps"
-    elif torch.cuda.is_available():
-        console.log("CUDA is available. Using GPU.")
-        device = "cuda"
-    else:
-        console.log("CUDA is not available. Using CPU.")
-        device = "cpu"
-    return device
+DEVICE = None  # see get_torch_device
+_SENTENCE_MODEL_INSTANCE = None  # see get_sentence_transformer
+_LLM_MODEL_INSTANCE = None  # see get_llm_model
+_TOKENIZER_INSTANCE = None  # see get_tokenizer
 
 
-DEVICE = get_torch_device()
+def get_torch_device() -> str:
+    """Determine and return the available torch device.
+
+    Checks devices in the following order:
+        1. MPS
+        2. CUDA
+        3. CPU
+
+    Returns:
+        str: One of "mps", "cuda", or "cpu".
+    """
+    global DEVICE
+    if DEVICE is None:
+        console.log("Determining torch device...", style="info")
+        if torch.backends.mps.is_available():
+            DEVICE = "mps"
+        elif torch.cuda.is_available():
+            DEVICE = "cuda"
+        else:
+            DEVICE = "cpu"
+        console.log(f"Using torch device: {DEVICE}", style="info")
+    return DEVICE
 
 
 def get_llm_model(model_name: str = MODEL_NAME) -> AutoModelForCausalLM:
-    """Load the LLM model for generating text."""
-    return AutoModelForCausalLM.from_pretrained(
-        model_name, return_dict_in_generate=True, torch_dtype=torch.float16
-    ).to(DEVICE)
+    """
+    Load the LLM model for generating text.
+    Uses a singleton pattern to avoid repeatedly loading the model.
+    """
+    global _LLM_MODEL_INSTANCE
+    if _LLM_MODEL_INSTANCE is None:
+        console.log(f"Initializing LLM model: {model_name}", style="info")
+        _LLM_MODEL_INSTANCE = AutoModelForCausalLM.from_pretrained(
+            model_name, return_dict_in_generate=True, torch_dtype=torch.float16
+        ).to(get_torch_device())
+    return _LLM_MODEL_INSTANCE
 
 
 def get_tokenizer(model_name: str = MODEL_NAME) -> AutoTokenizer:
-    """Load the tokenizer for the LLM model."""
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    return tokenizer
+    """
+    Load the tokenizer for the LLM model.
+    Uses a singleton pattern to avoid repeatedly loading the tokenizer.
+    """
+    global _TOKENIZER_INSTANCE
+    if _TOKENIZER_INSTANCE is None:
+        console.log(f"Initializing tokenizer: {model_name}", style="info")
+        _TOKENIZER_INSTANCE = AutoTokenizer.from_pretrained(model_name)
+        if _TOKENIZER_INSTANCE.pad_token is None:
+            _TOKENIZER_INSTANCE.pad_token = _TOKENIZER_INSTANCE.eos_token
+    return _TOKENIZER_INSTANCE
 
 
 def get_sentence_transformer(model_name: str = EMBEDDING_MODEL) -> SentenceTransformer:
-    """Load a SentenceTransformer model for embedding text."""
-    return SentenceTransformer(model_name)
+    """
+    Load a SentenceTransformer model for embedding text.
+    Uses a singleton pattern to avoid repeatedly loading the model.
+    """
+    global _SENTENCE_MODEL_INSTANCE
+    if _SENTENCE_MODEL_INSTANCE is None:
+        console.log(
+            f"Initializing SentenceTransformer model: {model_name}", style="info"
+        )
+        _SENTENCE_MODEL_INSTANCE = SentenceTransformer(model_name)
+    return _SENTENCE_MODEL_INSTANCE
 
 
 # Text processing utilities
