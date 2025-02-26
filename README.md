@@ -50,3 +50,17 @@ The system maintains context relevance by:
 ### Installation
 ```bash
 pip install -r requirements.txt
+```
+
+## 🔮 Future Directions
+I'm actively exploring:
+
+Reinforcement learning for optimizing decay functions
+Multi-modal graphs incorporating images and code
+Hierarchical summarization for pruning without information loss
+Knowledge distillation between graph instances
+
+📄 License
+MIT License
+🤝 Contributing
+Contributions welcome! See CONTRIBUTING.md for details.
