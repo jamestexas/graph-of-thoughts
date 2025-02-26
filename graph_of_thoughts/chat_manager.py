@@ -2,8 +2,8 @@
 
 import json
 import os
-from datetime import datetime
 import re
+from datetime import datetime
 from typing import Any
 
 import networkx as nx
@@ -24,8 +24,20 @@ def extract_sections(response: str) -> tuple[str, str]:
     """
     internal_match = re.search(r"<internal>(.*?)</internal>", response, re.DOTALL)
     final_match = re.search(r"<final>(.*?)</final>", response, re.DOTALL)
+
+    # Ensure extracted JSON is valid
     internal = internal_match.group(1).strip() if internal_match else "{}"
     final = final_match.group(1).strip() if final_match else response.strip()
+
+    try:
+        json.loads(internal)  # Check if valid JSON
+    except ValueError as e:
+        console.log(
+            f"[Error] Extracted JSON is invalid. Using fallback: {e}",
+            style="warning",
+        )
+        internal = "{}"
+
     return internal, final
 
 
@@ -69,9 +81,9 @@ class ChatManager:
 """
         # TODO: Remove
         # console.log(f"Prompt: {extended_prompt}", style="prompt")
-        inputs = self.context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
-            self.context_manager.model.device
-        )
+        inputs = self.context_manager.tokenizer(
+            extended_prompt, return_tensors="pt"
+        ).to(self.context_manager.model.device)
         generation_config = GenerationConfig(
             max_new_tokens=max_new_tokens,
             do_sample=True,
@@ -83,7 +95,9 @@ class ChatManager:
             output = self.context_manager.model.generate(
                 **inputs, generation_config=generation_config
             )
-        return self.context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
+        return self.context_manager.tokenizer.decode(
+            output[0], skip_special_tokens=True
+        )
 
     def process_turn(self, user_input: str, conversation_turn: int) -> str:
         """Process a single conversation turn."""
@@ -103,7 +117,11 @@ class ChatManager:
 
         # Extract internal reasoning (for graph update) and final answer (for the user)
         internal_json, final_response = extract_sections(response)
-        console.log(f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm")
+        console.log(f"[Debug] Extracted JSON:\n{internal_json}", style="warning")
+
+        console.log(
+            f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm"
+        )
 
         # Add final answer to context
         self.context_manager.add_context(f"llm_{conversation_turn}", final_response)
@@ -112,15 +130,18 @@ class ChatManager:
         try:
             reasoning_output = json.loads(internal_json)
             self.context_manager.iterative_refinement(reasoning_output)
-        except Exception as e:
+        except json.JSONDecodeError as e:
             console.log(
-                f"[Error] No valid structured reasoning found: {e}. Raw LLM output: {response}",
+                f"[Error] JSON parsing failed: {e}. Extracted JSON snippet:\n"
+                f"```json\n{internal_json[:300]}...\n```",  # Truncate to avoid excessive output
                 style="warning",
             )
-
-        # Prune low-importance nodes
-        self.context_manager.prune_context(threshold=0.8)
-        return final_response
+        except Exception as e:
+            console.log(
+                f"[Error] Unexpected issue during structured reasoning extraction: {e}. Last 100 chars of response:\n"
+                f"```{response[-100:]}```",
+                style="error",
+            )
 
     def simulate_conversation(
         self,

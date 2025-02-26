@@ -23,7 +23,7 @@ console = Console(
 
 
 MODEL_NAME = "unsloth/Llama-3.2-3B-Instruct"
-MAX_NEW_TOKENS = 200
+MAX_NEW_TOKENS = 512
 
 
 # Directory structure
