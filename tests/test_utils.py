@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from graph_of_thoughts import utils
 from graph_of_thoughts.utils import (
     build_llama_instruct_prompt,
     build_structured_prompt,
@@ -23,7 +24,10 @@ from graph_of_thoughts.utils import (
     [
         ("  This   is  a    test.  ", "This is a test."),
         ("\nNew\n\nline\n\tcharacters\n", "New line characters"),
-        ("Multiple   spaces    should   be  removed", "Multiple spaces should be removed"),
+        (
+            "Multiple   spaces    should   be  removed",
+            "Multiple spaces should be removed",
+        ),
     ],
 )
 def test_clean_text(input_text, expected_output):
@@ -33,8 +37,16 @@ def test_clean_text(input_text, expected_output):
 @pytest.mark.parametrize(
     "input_text, max_sentences, expected_output",
     [
-        ("This is a test. Another sentence here. And another one.", 1, "This is a test."),
-        ("This is a test! Another one? And another.", 2, "This is a test! Another one?"),
+        (
+            "This is a test. Another sentence here. And another one.",
+            1,
+            "This is a test.",
+        ),
+        (
+            "This is a test! Another one? And another.",
+            2,
+            "This is a test! Another one?",
+        ),
         ("Only one sentence.", 3, "Only one sentence."),
     ],
 )
@@ -122,6 +134,21 @@ def test_build_structured_prompt(query):
     assert f"Question: {query}" in prompt
     assert "<json>" in prompt
     assert "**DO NOT** provide explanations" in prompt
+
+
+@pytest.fixture(autouse=True)
+def reset_device_singleton():
+    """Reset the DEVICE singleton before each test."""
+    # Store original
+    original_device = utils.DEVICE
+
+    # Reset for the test
+    utils.DEVICE = None
+
+    yield
+
+    # Restore after test
+    utils.DEVICE = original_device
 
 
 @pytest.fixture

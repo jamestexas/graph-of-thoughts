@@ -97,7 +97,9 @@ class TestGraphStorage:
 
             # Add node with custom metadata
             custom_metadata = {"importance": 0.5, "custom_key": "custom_value"}
-            empty_graph_storage.add_node("custom_node", "Custom content", custom_metadata)
+            empty_graph_storage.add_node(
+                "custom_node", "Custom content", custom_metadata
+            )
 
             # Check node was added with custom metadata
             assert "custom_node" in empty_graph_storage.graph.nodes
@@ -183,13 +185,17 @@ class TestGraphStorage:
         """Test decaying a node's importance."""
         with mock.patch("graph_of_thoughts.graph_components.console.log"):
             # Get initial importance
-            initial_importance = populated_graph_storage.graph.nodes["node1"]["data"]["importance"]
+            initial_importance = populated_graph_storage.graph.nodes["node1"]["data"][
+                "importance"
+            ]
 
             # Apply decay
             populated_graph_storage.decay_node_importance("node1", decay_factor=0.9)
 
             # Check importance was reduced
-            new_importance = populated_graph_storage.graph.nodes["node1"]["data"]["importance"]
+            new_importance = populated_graph_storage.graph.nodes["node1"]["data"][
+                "importance"
+            ]
             assert new_importance < initial_importance
 
             # Test with non-existent node (should not raise error)
@@ -212,13 +218,18 @@ class TestGraphStorage:
 
 
 class TestEmbeddingEngine:
+    # In tests/test_graph_components.py, within TestReasoningEngine class
+
     @pytest.fixture
     def mock_sentence_transformer(self):
         """Create a mock sentence transformer with controlled outputs."""
         mock_model = mock.MagicMock()
 
         # Mock encode method to return a valid 1D embedding
-        def mock_encode(sentences, convert_to_numpy=True):
+        def mock_encode(
+            sentences, convert_to_numpy=True, show_progress_bar=None, **kwargs
+        ):
+            # Added show_progress_bar parameter with default None
             # If single sentence, return 1D array
             if isinstance(sentences, str):
                 return np.ones(384, dtype=np.float32) * 0.1
@@ -294,13 +305,18 @@ class TestReasoningEngine:
         """Fixture for a graph storage."""
         return GraphStorage()
 
+    # In tests/test_graph_components.py, within TestReasoningEngine class
+
     @pytest.fixture
     def mock_sentence_transformer(self):
         """Create a mock sentence transformer with controlled outputs."""
         mock_model = mock.MagicMock()
 
         # Mock encode method to return a valid 1D embedding
-        def mock_encode(sentences, convert_to_numpy=True):
+        def mock_encode(
+            sentences, convert_to_numpy=True, show_progress_bar=None, **kwargs
+        ):
+            # Added show_progress_bar parameter with default None
             # If single sentence, return 1D array
             if isinstance(sentences, str):
                 return np.ones(384, dtype=np.float32) * 0.1

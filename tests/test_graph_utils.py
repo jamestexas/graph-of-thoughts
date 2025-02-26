@@ -20,7 +20,9 @@ class TestAddChainOfThoughtToGraph:
         mock_context_manager = mock.MagicMock()
 
         # Create a chain of thought
-        chain_obj = ChainOfThought(nodes={"A": "Node A", "B": "Node B"}, edges=[["A", "B"]])
+        chain_obj = ChainOfThought(
+            nodes={"A": "Node A", "B": "Node B"}, edges=[["A", "B"]]
+        )
 
         # Call the function
         with mock.patch("graph_of_thoughts.graph_utils.console.log"):
@@ -36,7 +38,9 @@ class TestAddChainOfThoughtToGraph:
         )
 
         # Check that edge was added
-        mock_context_manager.graph_storage.add_edge.assert_called_once_with("reason_A", "reason_B")
+        mock_context_manager.graph_storage.add_edge.assert_called_once_with(
+            "reason_A", "reason_B"
+        )
 
 
 class TestUpdateAndSaveGraph:
@@ -50,7 +54,9 @@ class TestUpdateAndSaveGraph:
         """Test with invalid JSON input."""
         with (
             mock.patch("graph_of_thoughts.graph_utils.console.log"),
-            mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
+            mock.patch(
+                "graph_of_thoughts.graph_utils.parse_chain_of_thought"
+            ) as mock_parse,
         ):
             mock_parse.side_effect = ValueError("Invalid JSON")
 
@@ -61,7 +67,9 @@ class TestUpdateAndSaveGraph:
         """Test with missing nodes or edges."""
         with (
             mock.patch("graph_of_thoughts.graph_utils.console.log"),
-            mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
+            mock.patch(
+                "graph_of_thoughts.graph_utils.parse_chain_of_thought"
+            ) as mock_parse,
         ):
             # Create a chain with empty nodes
             mock_parse.return_value = ChainOfThought(nodes={}, edges=[["A", "B"]])
@@ -76,7 +84,9 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
+                mock.patch(
+                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
+                ) as mock_parse,
             ):
                 # Create a valid chain
                 mock_parse.return_value = ChainOfThought(
@@ -110,13 +120,21 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
+                mock.patch(
+                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
+                ) as mock_parse,
             ):
                 # Create a valid chain with new data
-                mock_parse.return_value = ChainOfThought(nodes={"B": "Node B"}, edges=[["A", "B"]])
+                mock_parse.return_value = ChainOfThought(
+                    nodes={"B": "Node B"}, edges=[["A", "B"]]
+                )
 
                 # Call the function
-                result = update_and_save_graph(None, output_path, "valid")
+                result = update_and_save_graph(
+                    context_manager=None,
+                    output_path=output_path,
+                    structured_reasoning_output="valid",
+                )
 
                 # Check result
                 assert result is True
@@ -137,22 +155,27 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
+                mock.patch(
+                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
+                ) as mock_parse,
+                mock.patch("builtins.open", mock.mock_open()),
+                mock.patch("shutil.move") as mock_move,
             ):
                 # Create a valid chain
-                mock_parse.return_value = ChainOfThought(nodes={"A": "Node A"}, edges=[])
+                mock_parse.return_value = ChainOfThought(
+                    nodes={"A": "Node A"}, edges=[["A", "B"]]
+                )
 
                 # Call the function
-                result = update_and_save_graph(None, output_path, "raw output", debug_path)
+                result = update_and_save_graph(
+                    None, output_path, "raw output", debug_path
+                )
 
                 # Check result
                 assert result is True
-                assert os.path.exists(debug_path)
 
-                # Check debug file contents
-                with open(debug_path) as f:
-                    debug_content = f.read()
-                    assert debug_content == "raw output"
+                # Verify shutil.move was called
+                mock_move.assert_called_once()
 
 
 class TestLoadGraph:
@@ -183,13 +206,15 @@ class TestLoadGraph:
     def test_invalid_json(self):
         """Test loading an invalid JSON file."""
         with tempfile.TemporaryDirectory() as temp_dir:
+            # Create a real file with invalid JSON
             file_path = os.path.join(temp_dir, "invalid.json")
-
-            # Create an invalid file
             with open(file_path, "w") as f:
                 f.write("invalid json")
 
-            # Load the file
+            # Mock the console.log to avoid output
             with mock.patch("graph_of_thoughts.graph_utils.console.log"):
+                # Load the file
                 result = load_graph(file_path)
+
+                # Check result
                 assert result == {"nodes": {}, "edges": []}

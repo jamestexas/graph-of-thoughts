@@ -164,7 +164,9 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                created_at = datetime.fromisoformat(
+                    created_at_str.replace("Z", "+00:00")
+                )
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:
@@ -231,7 +233,11 @@ class EmbeddingEngine:
 
     def add_node_embedding(self, node_id: str, content: str) -> None:
         """Compute and add a node's embedding to the index."""
-        embedding = self.sentence_model.encode(content, convert_to_numpy=True)
+        embedding = self.sentence_model.encode(
+            content,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
         self.nodes.append(node_id)
         self.index.add(np.array([embedding], dtype=np.float32))
 
@@ -241,7 +247,11 @@ class EmbeddingEngine:
             return []
 
         # Encode query
-        query_emb = self.sentence_model.encode(query, convert_to_numpy=True)
+        query_emb = self.sentence_model.encode(
+            query,
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
 
         # Search index
         _, indices = self.index.search(
@@ -258,7 +268,11 @@ class EmbeddingEngine:
 
     def compute_similarity(self, text1: str, text2: str) -> float:
         """Compute semantic similarity between two texts."""
-        embeddings = self.sentence_model.encode([text1, text2], convert_to_numpy=True)
+        embeddings = self.sentence_model.encode(
+            [text1, text2],
+            convert_to_numpy=True,
+            show_progress_bar=False,
+        )
         similarity = np.dot(embeddings[0], embeddings[1]) / (
             np.linalg.norm(embeddings[0]) * np.linalg.norm(embeddings[1])
         )

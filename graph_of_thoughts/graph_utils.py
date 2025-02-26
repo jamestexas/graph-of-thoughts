@@ -126,6 +126,6 @@ def load_graph(file_path: str = LLM_PATH) -> dict:
     try:
         contents = p.read_text()
         return json.loads(contents)
-    except OSError as e:
+    except ValueError as e:
         console.log(f"⚠️ Error loading graph from {file_path}: {e}", style="warning")
         return default_graph

@@ -88,7 +88,8 @@ def get_sentence_transformer(model_name: str = EMBEDDING_MODEL) -> SentenceTrans
     global _SENTENCE_MODEL_INSTANCE
     if _SENTENCE_MODEL_INSTANCE is None:
         console.log(
-            f"Initializing SentenceTransformer model: {model_name}", style="info"
+            f"Initializing SentenceTransformer model: {model_name}",
+            style="info",
         )
         _SENTENCE_MODEL_INSTANCE = SentenceTransformer(model_name)
     return _SENTENCE_MODEL_INSTANCE
