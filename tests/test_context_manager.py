@@ -7,7 +7,6 @@ import pytest
 from graph_of_thoughts.context_manager import (
     ContextGraphManager,
     FastEmbeddingIndex,
-    chat_entry,
     generate_with_context,
     get_context_mgr,
     parse_chain_of_thought,
@@ -38,7 +37,8 @@ class TestFastEmbeddingIndex:
 
         # Verify node was added
         assert len(index.nodes) == 1
-        assert index.nodes[0] == node_id
+        if index.nodes[0] != node_id:
+            raise AssertionError(f"Expected node_id {node_id}, but got {index.nodes[0]}")
         assert index.index.ntotal == 1
 
     def test_query(self):
@@ -532,54 +532,54 @@ class TestHelperFunctions:
         mock_manager.add_context.assert_any_call("node1", "Content 1", {"key1": "value1"})
         mock_manager.add_context.assert_any_call("node2", "Content 2", {"key2": "value2"})
 
-    def test_chat_entry(self):
-        # Test chat_entry function
-        mock_manager = mock.MagicMock()
+    # def test_chat_entry(self):
+    #     # Test chat_entry function
+    #     mock_manager = mock.MagicMock()
 
-        with (
-            mock.patch("graph_of_thoughts.context_manager.console.log"),
-            mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
-            mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
-        ):
-            # Set up mocks
-            mock_generate.return_value = "LLM response"
-            mock_extract.return_value = "JSON response"
+    #     with (
+    #         mock.patch("graph_of_thoughts.context_manager.console.log"),
+    #         mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
+    #         mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
+    #     ):
+    #         # Set up mocks
+    #         mock_generate.return_value = "LLM response"
+    #         mock_extract.return_value = "JSON response"
 
-            # Call function
-            chat_entry(mock_manager, "User input", 1)
+    #         # Call function
+    #         chat_entry(mock_manager, "User input", 1)
 
-            # Verify calls
-            mock_manager.decay_importance.assert_called_once()
-            mock_manager.add_context.assert_any_call("user_1", "User input")
-            mock_manager.query_context.assert_called_once_with("User input", top_k=3)
-            mock_generate.assert_called_once_with("User input", context_manager=mock_manager)
-            mock_manager.add_context.assert_any_call("llm_1", "LLM response")
-            mock_extract.assert_called_once_with("LLM response")
-            mock_manager.iterative_refinement.assert_called_once_with("JSON response")
-            mock_manager.prune_context.assert_called_once()
+    #         # Verify calls
+    #         mock_manager.decay_importance.assert_called_once()
+    #         mock_manager.add_context.assert_any_call("user_1", "User input")
+    #         mock_manager.query_context.assert_called_once_with("User input", top_k=3)
+    #         mock_generate.assert_called_once_with("User input", context_manager=mock_manager)
+    #         mock_manager.add_context.assert_any_call("llm_1", "LLM response")
+    #         mock_extract.assert_called_once_with("LLM response")
+    #         mock_manager.iterative_refinement.assert_called_once_with("JSON response")
+    #         mock_manager.prune_context.assert_called_once()
 
-    def test_chat_entry_error_handling(self):
-        # Test chat_entry with error in JSON extraction
-        mock_manager = mock.MagicMock()
+    # def test_chat_entry_error_handling(self):
+    #     # Test chat_entry with error in JSON extraction
+    #     mock_manager = mock.MagicMock()
 
-        with (
-            mock.patch("graph_of_thoughts.context_manager.console.log") as mock_log,
-            mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
-            mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
-        ):
-            # Set up mocks with error
-            mock_generate.return_value = "LLM response"
-            mock_extract.side_effect = ValueError("Invalid JSON")
+    #     with (
+    #         mock.patch("graph_of_thoughts.context_manager.console.log") as mock_log,
+    #         mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
+    #         mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
+    #     ):
+    #         # Set up mocks with error
+    #         mock_generate.return_value = "LLM response"
+    #         mock_extract.side_effect = ValueError("Invalid JSON")
 
-            # Call function
-            chat_entry(mock_manager, "User input", 1)
+    #         # Call function
+    #         chat_entry(mock_manager, "User input", 1)
 
-            # Verify error handling
-            mock_manager.add_context.assert_any_call("llm_1", "LLM response")
-            mock_extract.assert_called_once_with("LLM response")
-            mock_manager.iterative_refinement.assert_not_called()  # Should not be called due to error
-            mock_log.assert_any_call(mock.ANY, style="warning")  # Warning should be logged
-            mock_manager.prune_context.assert_called_once()  # Should still be called despite error
+    #         # Verify error handling
+    #         mock_manager.add_context.assert_any_call("llm_1", "LLM response")
+    #         mock_extract.assert_called_once_with("LLM response")
+    #         mock_manager.iterative_refinement.assert_not_called()  # Should not be called due to error
+    #         mock_log.assert_any_call(mock.ANY, style="warning")  # Warning should be logged
+    #         mock_manager.prune_context.assert_called_once()  # Should still be called despite error
 
     def test_simulate_chat(self):
         # Test simulate_chat function

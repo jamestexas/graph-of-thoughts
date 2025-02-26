@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import time
 from datetime import datetime
 from typing import Any
 
@@ -14,28 +15,56 @@ from graph_of_thoughts.constants import MAX_NEW_TOKENS, OUTPUT_DIR, console
 from graph_of_thoughts.context_manager import ContextGraphManager, seed_nodes
 from graph_of_thoughts.evaluate_llm_graph import GraphMetrics, KnowledgeGraph
 from graph_of_thoughts.models import SeedData
+from graph_of_thoughts.utils import build_llama_instruct_prompt
 
 
 def extract_sections(response: str) -> tuple[str, str]:
     """
-    Extract the internal JSON block and the final answer from the response.
-    Expected format:
-        ... <internal> ... </internal> ... <final> ... </final> ...
+    Extract JSON block and final answer, handling template echoing.
     """
-    internal_match = re.search(r"<internal>(.*?)</internal>", response, re.DOTALL)
-    final_match = re.search(r"<final>(.*?)</final>", response, re.DOTALL)
+    console.log(f"[Debug] Raw LLM Response (first 300 chars):\n{response[:300]}...", style="dim")
 
-    # Ensure extracted JSON is valid
-    internal = internal_match.group(1).strip() if internal_match else "{}"
-    final = final_match.group(1).strip() if final_match else response.strip()
+    # Check for template echoing
+    if "ConceptName1" in response and "Description of concept 1" in response:
+        console.log("[Warning] LLM echoed the template instead of filling it", style="warning")
+        internal = "{}"
+    else:
+        # Try to extract using <internal> tags
+        internal_match = re.search(r"<internal>\s*(\{.*?\})\s*</internal>", response, re.DOTALL)
 
+        if internal_match:
+            internal = internal_match.group(1).strip()
+        else:
+            # Try other formats
+            json_match = re.search(
+                r"<json>\s*(\{.*?\})\s*</json>", response, re.DOTALL
+            ) or re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
+
+            if json_match:
+                internal = json_match.group(1).strip()
+            else:
+                console.log("[Warning] No JSON block found in response", style="warning")
+                internal = "{}"
+
+    # Extract final response
+    final_match = re.search(r"<final>\s*(.*?)\s*</final>", response, re.DOTALL)
+    if final_match:
+        final = final_match.group(1).strip()
+    else:
+        # Use everything except JSON blocks
+        final = re.sub(r"<internal>.*?</internal>", "", response, flags=re.DOTALL)
+        final = re.sub(r"<json>.*?</json>", "", final, flags=re.DOTALL)
+        final = re.sub(r"```(?:json)?.*?```", "", final, flags=re.DOTALL)
+        final = final.strip()
+
+    # Ensure we have valid JSON
     try:
-        json.loads(internal)  # Check if valid JSON
-    except ValueError as e:
-        console.log(
-            f"[Error] Extracted JSON is invalid. Using fallback: {e}",
-            style="warning",
-        )
+        if internal != "{}":
+            json_data = json.loads(internal)
+            if "nodes" not in json_data or "edges" not in json_data:
+                json_data = {"nodes": {}, "edges": []}
+                internal = json.dumps(json_data)
+    except json.JSONDecodeError:
         internal = "{}"
 
     return internal, final
@@ -49,41 +78,89 @@ class ChatManager:
     def __init__(self, context_manager: ContextGraphManager):
         """Initialize with a context manager."""
         self.context_manager = context_manager
+        self.response_cache = {}  # query -> response cache
+
+    @staticmethod
+    def _get_nav_instructions(
+        query: str,
+        navigation_path,
+        graph_structure,
+    ) -> str:
+        """
+        Constructs a prompt for the user to continue the conversation.
+        """
+        # Construct prompt with two distinct sections
+        # former:
+        """[Knowledge Graph Navigation] - Your goal is to expand relevant concepts based on the **existing graph**. - Navigate down from the **root concept** to related subtopics. - Prioritize depth over breadth—go deeper before adding new high-level topics."""
+        return f"""
+
+[Current Query]: {query}
+[Current Navigation Path]: {navigation_path}
+[Existing Graph Structure]:
+{graph_structure}
+
+[RESPONSE FORMAT - FOLLOW EXACTLY]:
+Your response MUST contain BOTH of these sections in this exact order:
+
+1. FIRST, a JSON structure inside <internal> tags following this format:
+<internal>
+{{
+  "nodes": {{
+    "ConceptName1": "Description of concept 1",
+    "ConceptName2": "Description of concept 2"
+  }},
+  "edges": [
+    ["ConceptName1", "ConceptName2"]
+  ]
+}}
+</internal>
+
+2. SECOND, your answer to the user's question inside <final> tags:
+<final>
+Your detailed answer to the user's question goes here.
+</final>
+"""
 
     def generate_response(
         self,
         query: str,
         max_new_tokens: int = MAX_NEW_TOKENS,
     ) -> str:
+        """
+        Constructs an extended reasoning prompt where the LLM explicitly navigates the graph.
+        Uses caching for improved performance on repeated queries.
+        """
+        # Check cache first
+        if not hasattr(self, "response_cache"):
+            self.response_cache = {}
+
+        cache_key = hash(query)
+        if cache_key in self.response_cache:
+            console.log(f"[Cache] Using cached response for query: '{query[:30]}...'", style="info")
+            return self.response_cache[cache_key]
+
         # Get relevant nodes
         relevant_nodes = self.context_manager.query_context(query, top_k=3)
         navigation_path = " → ".join(relevant_nodes)
-        # Construct prompt with two distinct sections
-        extended_prompt = f"""
-[Knowledge Graph Navigation]
-- Your goal is to expand relevant concepts based on the **existing graph**.
-- Navigate down from the **root concept** to related subtopics.
-- Prioritize depth over breadth—go deeper before adding new high-level topics.
+        navigation_instructions = self._get_nav_instructions(
+            query=query,
+            navigation_path=navigation_path,
+            graph_structure=self.context_manager.visualize_graph_as_text(),
+        )
+        user_text = f"{navigation_instructions}\n\nQuestion: {query}"
+        system_prompt = """You are a knowledge graph builder. Create nodes and connections for the query.
+First provide JSON in <internal> tags, then answer the question in <final> tags."""
 
-[Current Query]: {query}
-[Current Navigation Path]: {navigation_path}
-[Existing Graph Structure]:
-{self.context_manager.visualize_graph_as_text()}
+        extended_prompt = build_llama_instruct_prompt(
+            system_text=system_prompt,
+            user_text=user_text,
+        )
 
-[Reasoning Instructions]:
-1️⃣ Identify missing knowledge gaps in the structure.
-2️⃣ Expand deeper where necessary—**do not just add random new nodes.**
-3️⃣ Maintain a logical structure using causality and dependencies.
-4️⃣ Output only **valid JSON inside <internal>...</internal>** tags for graph updates.
-5️⃣ Then, output the final answer for the user inside <final>...</final> tags.
-
-[Generated Knowledge Graph Update]:
-"""
-        # TODO: Remove
-        # console.log(f"Prompt: {extended_prompt}", style="prompt")
+        # Tokenize and generate
         inputs = self.context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
             self.context_manager.model.device
         )
+
         generation_config = GenerationConfig(
             max_new_tokens=max_new_tokens,
             do_sample=True,
@@ -91,11 +168,18 @@ class ChatManager:
             top_k=50,
             pad_token_id=self.context_manager.tokenizer.eos_token_id,
         )
+
         with torch.no_grad():
             output = self.context_manager.model.generate(
                 **inputs, generation_config=generation_config
             )
-        return self.context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
+
+        response = self.context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
+
+        # Store in cache for future use
+        self.response_cache[cache_key] = response
+
+        return response
 
     def process_turn(self, user_input: str, conversation_turn: int) -> str:
         """Process a single conversation turn."""
@@ -111,11 +195,16 @@ class ChatManager:
         console.log(f"[Context Retrieved]: {retrieved_context}", style="context")
 
         # Generate full response
+        console.log(f"[Debug] Generating response for: {user_input[:50]}...", style="info")
+        start_time = time.time()
+
         response = self.generate_response(user_input)
+        generation_time = time.time() - start_time
+        console.log(f"[Debug] Response generation took {generation_time:.2f}s", style="info")
 
         # Extract internal reasoning (for graph update) and final answer (for the user)
         internal_json, final_response = extract_sections(response)
-        console.log(f"[Debug] Extracted JSON:\n{internal_json}", style="warning")
+        console.log(f"[Debug] Extracted JSON size: {len(internal_json)} characters", style="info")
 
         console.log(f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm")
 

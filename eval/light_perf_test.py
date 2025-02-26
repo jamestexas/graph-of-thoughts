@@ -64,7 +64,7 @@ TEST_MODEL_3B = "unsloth/Llama-3.2-3B-Instruct"
 class LightPerformanceTest:
     """Lightweight performance testing for Graph of Thoughts."""
 
-    def __init__(self, model_name=TEST_MODEL_NAME):
+    def __init__(self, model_name=TEST_MODEL_3B):
         self.model_name = model_name
         self.model = get_llm_model(model_name=model_name)
         self.tokenizer = get_tokenizer(model_name=model_name)
@@ -199,6 +199,7 @@ IMPORTANT INSTRUCTIONS:
             # Validate required fields
             if "nodes" not in data or "edges" not in data:
                 console.log("[Error] Missing required fields in JSON", style="warning")
+                console.log(f"DATA FOUND: {data}", style="bold yellow")
                 # Initialize missing fields
                 data = {"nodes": data.get("nodes", {}), "edges": data.get("edges", [])}
 

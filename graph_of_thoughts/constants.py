@@ -15,7 +15,7 @@ console = Console(
             llm="green",
             prompt="blue",
             metrics="yellow",
-            info="white",
+            info="bold white",
             warning="bold red",
         )
     ),

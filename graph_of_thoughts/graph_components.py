@@ -118,7 +118,7 @@ class GraphStorage:
         """Convert the graph storage to a JSON-serializable format."""
         try:
             # Get the raw graph data
-            graph_data = self.graph_storage.to_json()
+            graph_data = self.to_json()
 
             # Process nodes to ensure all data is serializable
             for node in graph_data.get("nodes", []):
@@ -126,9 +126,7 @@ class GraphStorage:
                     data = node["data"]
 
                     # Handle datetime objects
-                    if "created_at" in data and isinstance(
-                        data["created_at"], datetime
-                    ):
+                    if "created_at" in data and isinstance(data["created_at"], datetime):
                         data["created_at"] = data["created_at"].isoformat()
 
                     # Handle other potential non-serializable objects
@@ -139,9 +137,7 @@ class GraphStorage:
             # Return as a JSON string to match test expectations
             return json.dumps({"nodes": {}, "edges": []})
         except Exception as e:
-            console.print(
-                f"[Error] Failed to convert graph to JSON: {e}", style="error"
-            )
+            console.print(f"[Error] Failed to convert graph to JSON: {e}", style="error")
             # Return a minimal valid JSON string
             return json.dumps({"nodes": [], "links": []})
 
@@ -165,25 +161,6 @@ class GraphStorage:
         except ValueError as e:
             console.log(f"Error saving graph to {filepath}: {e}", style="warning")
         return
-
-    def visualize_as_text(self) -> str:
-        """Generate a text representation of the graph."""
-        text = ["📌 **Current Knowledge Graph**\n"]
-
-        # Add nodes
-        text.append("🟢 **Nodes**:")
-        for node, data in self.graph.nodes(data=True):
-            content = data.get("data", {}).get("content", "No description")
-            if len(content) > 50:  # Truncate long content
-                content = content[:47] + "..."
-            text.append(f"  - {node}: {content}")
-
-        # Add edges
-        text.append("\n🔗 **Edges**:")
-        for source, target in self.graph.edges():
-            text.append(f"  - {source} → {target}")
-
-        return "\n".join(text)
 
     def decay_node_importance(
         self,
@@ -210,9 +187,7 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(
-                    created_at_str.replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:

@@ -9,14 +9,11 @@ from typing import TYPE_CHECKING, Optional
 import faiss
 import networkx as nx
 import numpy as np
-import torch
 from sentence_transformers import SentenceTransformer
-from transformers import GenerationConfig
 
 from graph_of_thoughts.constants import (
     EMBEDDING_MODEL,
     IMPORTANCE_DECAY_FACTOR,
-    MAX_NEW_TOKENS,
     MODEL_NAME,
     PRUNE_THRESHOLD,
     console,
@@ -28,12 +25,7 @@ from graph_of_thoughts.graph_components import (
     build_initial_graph,
 )
 from graph_of_thoughts.models import ChainOfThought, SeedData
-from graph_of_thoughts.utils import (
-    extract_and_clean_json,
-    get_llm_model,
-    get_sentence_transformer,
-    get_tokenizer,
-)
+from graph_of_thoughts.utils import get_llm_model, get_sentence_transformer, get_tokenizer
 
 if TYPE_CHECKING:
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -156,9 +148,50 @@ class ContextGraphManager:
         """Find the most relevant nodes for a query."""
         return self.embedding_engine.find_similar_nodes(query, top_k)
 
-    def visualize_graph_as_text(self) -> str:
-        """Get a text representation of the graph."""
-        return self.graph_storage.visualize_as_text()
+    def visualize_graph_as_text(self, max_nodes=8) -> str:
+        """Generate a focused text representation of the graph."""
+        text = ["📌 **Current Knowledge Graph**\n"]
+
+        # Get nodes with importance values
+        nodes_with_importance = []
+        for node_id in self.graph_storage.graph.nodes():
+            data = self.graph_storage.graph.nodes[node_id].get("data", {})
+            importance = 0.0
+
+            # Handle different data structures
+            if isinstance(data, dict):
+                importance = data.get("importance", 0.0)
+            elif hasattr(data, "metadata") and isinstance(data.metadata, dict):
+                importance = data.metadata.get("importance", 0.0)
+
+            nodes_with_importance.append((node_id, importance))
+
+        # Sort by importance (descending) and take top N
+        important_nodes = [
+            n[0]
+            for n in sorted(nodes_with_importance, key=lambda x: x[1], reverse=True)[:max_nodes]
+        ]
+
+        # Add nodes
+        text.append("🟢 **Nodes**:")
+        for node in important_nodes:
+            content = self.graph_storage.get_node_content(node) or "No description"
+            if len(content) > 50:  # Truncate long content
+                content = content[:47] + "..."
+            text.append(f"  - {node}: {content}")
+
+        # Add edges between important nodes
+        text.append("\n🔗 **Edges**:")
+        edge_count = 0
+        for source, target in self.graph_storage.graph.edges():
+            if source in important_nodes and target in important_nodes:
+                text.append(f"  - {source} → {target}")
+                edge_count += 1
+
+        if edge_count == 0:
+            text.append("  (No edges between shown nodes)")
+
+        return "\n".join(text)
 
     def graph_to_json(self) -> dict:
         """Convert the graph storage to a JSON-serializable format."""
@@ -213,75 +246,77 @@ class ContextGraphManager:
             )
         return
 
-    def prune_context(self, threshold: float = PRUNE_THRESHOLD) -> None:
-        """Remove low-importance nodes."""
+    def prune_context(self, threshold: float = PRUNE_THRESHOLD, max_nodes: int = 20) -> None:
+        """Remove low-importance nodes and limit total graph size."""
+        # First, prune by importance threshold
         self.graph_storage.prune_low_importance_nodes(threshold)
 
-    def iterative_refinement(self, reasoning_output: str) -> None:
+        # Then, if still too large, keep only the most important nodes
+        if len(self.graph_storage.graph.nodes) > max_nodes:
+            nodes_with_importance = []
+            for node_id in self.graph_storage.graph.nodes():
+                node_data = self.graph_storage.graph.nodes[node_id].get("data", {})
+                importance = node_data.get("importance", 0.0)
+                nodes_with_importance.append((node_id, importance))
+
+            # Sort by importance (descending)
+            nodes_with_importance.sort(key=lambda x: x[1], reverse=True)
+
+            # Remove least important nodes beyond our limit
+            nodes_to_remove = [node_id for node_id, _ in nodes_with_importance[max_nodes:]]
+            for node_id in nodes_to_remove:
+                self.graph_storage.remove_node(node_id)
+
+    def iterative_refinement(self, reasoning_output: str | dict) -> None:
         """Update the graph based on structured reasoning output."""
         try:
-            chain_obj = parse_chain_of_thought(reasoning_output)
-            self.reasoning_engine.update_from_chain_of_thought(chain_obj)
+            # Handle different input types
+            if isinstance(reasoning_output, dict):
+                # Already parsed
+                json_data = reasoning_output
+            elif isinstance(reasoning_output, str):
+                if reasoning_output.strip() == "{}":
+                    console.log("[Warning] Empty JSON structure received", style="warning")
+                    return
+
+                try:
+                    json_data = json.loads(reasoning_output)
+                except json.JSONDecodeError as e:
+                    console.log(f"[Error] Invalid JSON: {e}", style="warning")
+                    return
+            else:
+                console.log(
+                    f"[Error] Unexpected reasoning_output type: {type(reasoning_output)}",
+                    style="warning",
+                )
+                return
+
+            # Ensure we have the required fields
+            if "nodes" not in json_data or "edges" not in json_data:
+                console.log("[Warning] Missing required fields in JSON", style="warning")
+                if isinstance(json_data, dict):
+                    console.print_json(json_data)
+                else:
+                    console.log(json_data)
+                return
+
+            # Create ChainOfThought object
+            chain_obj = ChainOfThought(
+                nodes=json_data.get("nodes", {}), edges=json_data.get("edges", [])
+            )
+
+            # Only update if we have meaningful content
+            if chain_obj.nodes or chain_obj.edges:
+                self.reasoning_engine.update_from_chain_of_thought(chain_obj)
+                console.log(
+                    f"[Success] Updated graph with {len(chain_obj.nodes)} nodes and {len(chain_obj.edges)} edges",
+                    style="info",
+                )
+            else:
+                console.log("[Warning] No nodes or edges to add from reasoning", style="warning")
+
         except Exception as e:
-            console.log(f"[Error] Failed to parse reasoning output: {e}", style="warning")
-
-
-def generate_with_context(
-    query: str,
-    context_manager: ContextGraphManager,
-    max_new_tokens: int = MAX_NEW_TOKENS,
-) -> str:
-    """
-    Constructs an extended reasoning prompt where the LLM explicitly navigates the graph.
-    """
-    # Get relevant nodes
-    relevant_nodes = context_manager.query_context(query, top_k=3)
-
-    # Build navigation path
-    navigation_path = " → ".join(relevant_nodes)  # e.g., "Caching → Eviction → LRU"
-
-    # Construct prompt
-    extended_prompt = f"""
-[Knowledge Graph Navigation]
-- Your goal is to expand relevant concepts based on the **existing graph**.
-- Navigate down from the **root concept** to related subtopics.
-- Prioritize depth over breadth—go deeper before adding new high-level topics.
-
-[Current Query]: {query}
-[Current Navigation Path]: {navigation_path}
-
-[Existing Graph Structure]:
-{context_manager.visualize_graph_as_text()}
-
-[Reasoning Instructions]:
-1️⃣ Identify missing knowledge gaps in the structure.
-2️⃣ Expand deeper where necessary—**do not just add random new nodes.**
-3️⃣ Maintain a logical structure using causality and dependencies.
-4️⃣ Output only **valid JSON inside <json>...</json>** tags.
-
-[Generated Knowledge Graph Update]:
-"""
-
-    console.log(f"Prompt: {extended_prompt}", style="prompt")
-
-    # Tokenize and generate
-    inputs = context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
-        context_manager.model.device
-    )
-
-    generation_config = GenerationConfig(
-        max_new_tokens=max_new_tokens,
-        do_sample=True,
-        top_p=0.9,
-        top_k=50,
-        pad_token_id=context_manager.tokenizer.eos_token_id,
-    )
-
-    with torch.no_grad():
-        output = context_manager.model.generate(**inputs, generation_config=generation_config)
-
-    # Decode and return
-    return context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
+            console.log(f"[Error] Failed to process reasoning output: {e}", style="warning")
 
 
 def get_context_mgr(model_name: str = MODEL_NAME) -> ContextGraphManager:
@@ -295,46 +330,6 @@ def seed_nodes(context_manager: ContextGraphManager, seed_data: list[SeedData]) 
     """Add seed data to the context graph."""
     for data in seed_data:
         context_manager.add_context(data.node_id, data.content, data.metadata)
-
-
-def chat_entry(
-    context_manager: ContextGraphManager,
-    user_input: str,
-    conversation_turn: int,
-) -> None:
-    """Process a single conversation turn."""
-    # Decay node importance
-    context_manager.decay_importance(decay_factor=IMPORTANCE_DECAY_FACTOR, adaptive=True)
-
-    # Log user input
-    console.log(f"[User {conversation_turn}]: {user_input}", style="user")
-
-    # Add user input to context
-    context_manager.add_context(f"user_{conversation_turn}", user_input)
-
-    # Retrieve relevant context
-    retrieved_context = context_manager.query_context(user_input, top_k=3)
-    console.log(f"[Context Retrieved]: {retrieved_context}", style="context")
-
-    # Generate response
-    response = generate_with_context(user_input, context_manager=context_manager)
-    console.log(f"[LLM Response {conversation_turn}]: {response}", style="llm")
-
-    # Add response to context
-    context_manager.add_context(f"llm_{conversation_turn}", response)
-
-    # Extract reasoning and update graph
-    try:
-        reasoning_output = extract_and_clean_json(response)
-        context_manager.iterative_refinement(reasoning_output)
-    except Exception as e:
-        console.log(
-            f"[Error] No valid structured reasoning found: {e}. Raw LLM output: {response}",
-            style="warning",
-        )
-
-    # Prune low-importance nodes
-    context_manager.prune_context(threshold=PRUNE_THRESHOLD)
 
 
 def simulate_chat(
