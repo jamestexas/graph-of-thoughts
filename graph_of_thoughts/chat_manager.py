@@ -143,6 +143,9 @@ class ChatManager:
                 style="error",
             )
 
+        # Return the final response to match test expectations
+        return final_response
+
     def simulate_conversation(
         self,
         inputs: list[str],

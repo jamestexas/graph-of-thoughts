@@ -306,6 +306,7 @@ class TestContextGraphManager:
             # Create manager
             manager = ContextGraphManager()
 
+
             # Call graph_to_json
             result = manager.graph_to_json()
 

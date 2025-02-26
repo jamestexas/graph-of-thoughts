@@ -160,7 +160,7 @@ class ContextGraphManager:
         """Get a text representation of the graph."""
         return self.graph_storage.visualize_as_text()
 
-    def graph_to_json(self):
+    def graph_to_json(self) -> dict:
         """Convert the graph storage to a JSON-serializable format."""
         try:
             # Get the raw graph data
@@ -182,9 +182,9 @@ class ContextGraphManager:
 
             return graph_data
         except Exception as e:
-            console.print(f"[Error] Failed to convert graph to JSON: {e}", style="error")
+            console.print(f"[Error] Failed to convert graph to JSON: {e}", style="warning")
             # Return a minimal valid structure
-            return {"nodes": [], "links": []}
+            return {"nodes": [], "edges": []}
 
     def save_graph_state(self, filepath):
         """Save the current graph state to a file."""
