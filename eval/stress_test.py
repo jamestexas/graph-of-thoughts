@@ -58,9 +58,9 @@ def run_stress_test():
 
         try:
             # Tokenize and generate response
-            inputs = context_manager.tokenizer(
-                structured_prompt, return_tensors="pt"
-            ).to(context_manager.model.device)
+            inputs = context_manager.tokenizer(structured_prompt, return_tensors="pt").to(
+                context_manager.model.device
+            )
 
             generation_config = GenerationConfig(
                 max_new_tokens=200,
@@ -120,9 +120,7 @@ def run_stress_test():
             logging.debug(f"Graph after update: {context_manager.graph}")
 
             # 🔹 Save updated graph to disk (now merges instead of overwriting)
-            update_and_save_graph(
-                context_manager, LLM_PATH, structured_reasoning_output
-            )
+            update_and_save_graph(context_manager, LLM_PATH, structured_reasoning_output)
 
             logging.info("✅ Passed!")
 

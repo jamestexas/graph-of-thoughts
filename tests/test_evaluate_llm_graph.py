@@ -197,10 +197,12 @@ class TestGraphMatcher(unittest.TestCase):
         # Return numpy arrays instead of lists to support @ operator
         import numpy as np
 
-        self.mock_model.encode.return_value = np.array([
-            np.array([1.0, 0.0, 0.0]),  # First embedding
-            np.array([0.9, 0.1, 0.0]),  # Second embedding (close to first)
-        ])
+        self.mock_model.encode.return_value = np.array(
+            [
+                np.array([1.0, 0.0, 0.0]),  # First embedding
+                np.array([0.9, 0.1, 0.0]),  # Second embedding (close to first)
+            ]
+        )
 
         result = self.graph_matcher.compute_semantic_similarity("text1", "text2", threshold=0.8)
 
@@ -214,10 +216,12 @@ class TestGraphMatcher(unittest.TestCase):
         # Return numpy arrays instead of lists
         import numpy as np
 
-        self.mock_model.encode.return_value = np.array([
-            np.array([1.0, 0.0, 0.0]),  # First embedding
-            np.array([0.0, 1.0, 0.0]),  # Second embedding (orthogonal to first)
-        ])
+        self.mock_model.encode.return_value = np.array(
+            [
+                np.array([1.0, 0.0, 0.0]),  # First embedding
+                np.array([0.0, 1.0, 0.0]),  # Second embedding (orthogonal to first)
+            ]
+        )
 
         result = self.graph_matcher.compute_semantic_similarity("text1", "text2", threshold=0.5)
 

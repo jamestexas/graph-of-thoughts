@@ -51,9 +51,7 @@ def mock_context_manager():
     # Create a mock dict-like object that also has a to() method
     tokenizer_return = MagicMock()
     tokenizer_return.__getitem__ = lambda self, key: MagicMock()
-    tokenizer_return.to = MagicMock(
-        return_value=tokenizer_return
-    )  # Return self from to() method
+    tokenizer_return.to = MagicMock(return_value=tokenizer_return)  # Return self from to() method
 
     tokenizer_mock.return_value = tokenizer_return
     tokenizer_mock.decode.return_value = "Mock LLM response"

@@ -20,9 +20,7 @@ class TestAddChainOfThoughtToGraph:
         mock_context_manager = mock.MagicMock()
 
         # Create a chain of thought
-        chain_obj = ChainOfThought(
-            nodes={"A": "Node A", "B": "Node B"}, edges=[["A", "B"]]
-        )
+        chain_obj = ChainOfThought(nodes={"A": "Node A", "B": "Node B"}, edges=[["A", "B"]])
 
         # Call the function
         with mock.patch("graph_of_thoughts.graph_utils.console.log"):
@@ -38,9 +36,7 @@ class TestAddChainOfThoughtToGraph:
         )
 
         # Check that edge was added
-        mock_context_manager.graph_storage.add_edge.assert_called_once_with(
-            "reason_A", "reason_B"
-        )
+        mock_context_manager.graph_storage.add_edge.assert_called_once_with("reason_A", "reason_B")
 
 
 class TestUpdateAndSaveGraph:
@@ -54,9 +50,7 @@ class TestUpdateAndSaveGraph:
         """Test with invalid JSON input."""
         with (
             mock.patch("graph_of_thoughts.graph_utils.console.log"),
-            mock.patch(
-                "graph_of_thoughts.graph_utils.parse_chain_of_thought"
-            ) as mock_parse,
+            mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
         ):
             mock_parse.side_effect = ValueError("Invalid JSON")
 
@@ -67,9 +61,7 @@ class TestUpdateAndSaveGraph:
         """Test with missing nodes or edges."""
         with (
             mock.patch("graph_of_thoughts.graph_utils.console.log"),
-            mock.patch(
-                "graph_of_thoughts.graph_utils.parse_chain_of_thought"
-            ) as mock_parse,
+            mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
         ):
             # Create a chain with empty nodes
             mock_parse.return_value = ChainOfThought(nodes={}, edges=[["A", "B"]])
@@ -84,9 +76,7 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch(
-                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
-                ) as mock_parse,
+                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
             ):
                 # Create a valid chain
                 mock_parse.return_value = ChainOfThought(
@@ -120,14 +110,10 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch(
-                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
-                ) as mock_parse,
+                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
             ):
                 # Create a valid chain with new data
-                mock_parse.return_value = ChainOfThought(
-                    nodes={"B": "Node B"}, edges=[["A", "B"]]
-                )
+                mock_parse.return_value = ChainOfThought(nodes={"B": "Node B"}, edges=[["A", "B"]])
 
                 # Call the function
                 result = update_and_save_graph(
@@ -155,21 +141,15 @@ class TestUpdateAndSaveGraph:
 
             with (
                 mock.patch("graph_of_thoughts.graph_utils.console.log"),
-                mock.patch(
-                    "graph_of_thoughts.graph_utils.parse_chain_of_thought"
-                ) as mock_parse,
+                mock.patch("graph_of_thoughts.graph_utils.parse_chain_of_thought") as mock_parse,
                 mock.patch("builtins.open", mock.mock_open()),
                 mock.patch("shutil.move") as mock_move,
             ):
                 # Create a valid chain
-                mock_parse.return_value = ChainOfThought(
-                    nodes={"A": "Node A"}, edges=[["A", "B"]]
-                )
+                mock_parse.return_value = ChainOfThought(nodes={"A": "Node A"}, edges=[["A", "B"]])
 
                 # Call the function
-                result = update_and_save_graph(
-                    None, output_path, "raw output", debug_path
-                )
+                result = update_and_save_graph(None, output_path, "raw output", debug_path)
 
                 # Check result
                 assert result is True

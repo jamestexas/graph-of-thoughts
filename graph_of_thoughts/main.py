@@ -70,16 +70,12 @@ def main():
         pad_token_id=context_manager.tokenizer.eos_token_id,
     )
     with torch.no_grad():
-        output = context_manager.model.generate(
-            **inputs, generation_config=generation_config
-        )
+        output = context_manager.model.generate(**inputs, generation_config=generation_config)
 
     structured_reasoning_output = context_manager.tokenizer.decode(
         output[0], skip_special_tokens=True
     )
-    console.log(
-        "\n[Structured Reasoning Output]:", structured_reasoning_output, style="llm"
-    )
+    console.log("\n[Structured Reasoning Output]:", structured_reasoning_output, style="llm")
 
     try:
         chain_obj = parse_chain_of_thought(structured_reasoning_output)
@@ -99,9 +95,7 @@ def main():
         console.log(f"✅ Updated LLM Graph saved to {LLM_PATH}", style="info")
 
     except Exception as e:
-        console.log(
-            f"[Error] Could not parse chain-of-thought JSON: {e}", style="warning"
-        )
+        console.log(f"[Error] Could not parse chain-of-thought JSON: {e}", style="warning")
         console.log(f"[Error] Raw LLM reasoning output: {output[0]}", style="warning")
 
 

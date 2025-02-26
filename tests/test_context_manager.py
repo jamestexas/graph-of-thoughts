@@ -90,7 +90,9 @@ class TestParseChainOfThought:
 
     def test_no_json_tags(self):
         # Test with missing JSON tags
-        invalid_input = """{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"}]}"""
+        invalid_input = (
+            """{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"}]}"""
+        )
 
         with mock.patch("graph_of_thoughts.context_manager.console.log"):
             # Simulate no match found
@@ -104,7 +106,9 @@ class TestParseChainOfThought:
 
     def test_invalid_json_syntax(self):
         # Test with invalid JSON syntax
-        invalid_input = """<json>{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"</json>"""
+        invalid_input = (
+            """<json>{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"</json>"""
+        )
 
         with mock.patch("graph_of_thoughts.context_manager.console.log"):
             # Simulate the regex finding a match but JSON parsing failing
@@ -113,7 +117,9 @@ class TestParseChainOfThought:
                 mock_compile.return_value = mock_pattern
                 mock_match = mock.MagicMock()
                 mock_pattern.search.return_value = mock_match
-                mock_match.group.return_value = '{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"'
+                mock_match.group.return_value = (
+                    '{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"'
+                )
 
                 with pytest.raises(ValueError, match="Invalid JSON format"):
                     parse_chain_of_thought(invalid_input)
@@ -146,21 +152,11 @@ class TestContextGraphManager:
 
         # Test with our mocked context
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.build_initial_graph"
-            ) as mock_build,
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
-            mock.patch(
-                "graph_of_thoughts.context_manager.EmbeddingEngine"
-            ) as mock_embedding,
-            mock.patch(
-                "graph_of_thoughts.context_manager.ReasoningEngine"
-            ) as mock_reasoning,
-            mock.patch(
-                "graph_of_thoughts.context_manager.get_tokenizer"
-            ) as mock_tokenizer,
+            mock.patch("graph_of_thoughts.context_manager.build_initial_graph") as mock_build,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine") as mock_embedding,
+            mock.patch("graph_of_thoughts.context_manager.ReasoningEngine") as mock_reasoning,
+            mock.patch("graph_of_thoughts.context_manager.get_tokenizer") as mock_tokenizer,
             mock.patch("graph_of_thoughts.context_manager.get_llm_model") as mock_model,
             mock.patch(
                 "graph_of_thoughts.context_manager.get_sentence_transformer"
@@ -200,12 +196,8 @@ class TestContextGraphManager:
     def test_add_context(self):
         # Test add_context method with mocks
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
-            mock.patch(
-                "graph_of_thoughts.context_manager.EmbeddingEngine"
-            ) as mock_embedding,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine") as mock_embedding,
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
             mock.patch("graph_of_thoughts.context_manager.get_llm_model"),
@@ -230,20 +222,14 @@ class TestContextGraphManager:
             manager.add_context(node_id, content, metadata)
 
             # Verify calls
-            mock_storage_instance.add_node.assert_called_once_with(
-                node_id, content, metadata
-            )
-            mock_embedding_instance.add_node_embedding.assert_called_once_with(
-                node_id, content
-            )
+            mock_storage_instance.add_node.assert_called_once_with(node_id, content, metadata)
+            mock_embedding_instance.add_node_embedding.assert_called_once_with(node_id, content)
 
     def test_query_context(self):
         # Test query_context method with mocks
         with (
             mock.patch("graph_of_thoughts.context_manager.GraphStorage"),
-            mock.patch(
-                "graph_of_thoughts.context_manager.EmbeddingEngine"
-            ) as mock_embedding,
+            mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine") as mock_embedding,
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
             mock.patch("graph_of_thoughts.context_manager.get_llm_model"),
@@ -267,17 +253,13 @@ class TestContextGraphManager:
             result = manager.query_context(query, top_k)
 
             # Verify calls and result
-            mock_embedding_instance.find_similar_nodes.assert_called_once_with(
-                query, top_k
-            )
+            mock_embedding_instance.find_similar_nodes.assert_called_once_with(query, top_k)
             assert result == expected_nodes
 
     def test_visualize_graph_as_text(self):
         # Test visualize_graph_as_text method with mocks
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
@@ -306,9 +288,7 @@ class TestContextGraphManager:
     def test_graph_to_json(self):
         # Test graph_to_json method with mocks
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
@@ -337,9 +317,7 @@ class TestContextGraphManager:
     def test_decay_importance(self):
         # Test decay_importance method with mocks
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
@@ -378,9 +356,7 @@ class TestContextGraphManager:
     def test_prune_context(self):
         # Test prune_context method with mocks
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.GraphStorage"
-            ) as mock_storage,
+            mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
             mock.patch("graph_of_thoughts.context_manager.ReasoningEngine"),
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
@@ -400,18 +376,14 @@ class TestContextGraphManager:
             manager.prune_context(threshold=threshold)
 
             # Verify prune was called
-            mock_storage_instance.prune_low_importance_nodes.assert_called_once_with(
-                threshold
-            )
+            mock_storage_instance.prune_low_importance_nodes.assert_called_once_with(threshold)
 
     def test_iterative_refinement_success(self):
         # Test iterative_refinement method with successful parsing
         with (
             mock.patch("graph_of_thoughts.context_manager.GraphStorage"),
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
-            mock.patch(
-                "graph_of_thoughts.context_manager.ReasoningEngine"
-            ) as mock_reasoning,
+            mock.patch("graph_of_thoughts.context_manager.ReasoningEngine") as mock_reasoning,
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
             mock.patch("graph_of_thoughts.context_manager.get_llm_model"),
             mock.patch("graph_of_thoughts.context_manager.get_sentence_transformer"),
@@ -449,9 +421,7 @@ class TestContextGraphManager:
         with (
             mock.patch("graph_of_thoughts.context_manager.GraphStorage"),
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
-            mock.patch(
-                "graph_of_thoughts.context_manager.ReasoningEngine"
-            ) as mock_reasoning,
+            mock.patch("graph_of_thoughts.context_manager.ReasoningEngine") as mock_reasoning,
             mock.patch("graph_of_thoughts.context_manager.get_tokenizer"),
             mock.patch("graph_of_thoughts.context_manager.get_llm_model"),
             mock.patch("graph_of_thoughts.context_manager.get_sentence_transformer"),
@@ -505,9 +475,7 @@ class TestHelperFunctions:
         # Patch GenerationConfig to avoid validation issues
         with (
             mock.patch("graph_of_thoughts.context_manager.console.log"),
-            mock.patch(
-                "graph_of_thoughts.context_manager.GenerationConfig"
-            ) as mock_gen_config,
+            mock.patch("graph_of_thoughts.context_manager.GenerationConfig") as mock_gen_config,
         ):
             # Set up the mock config
             mock_config = mock.MagicMock()
@@ -526,12 +494,8 @@ class TestHelperFunctions:
     def test_get_context_mgr(self):
         # Test get_context_mgr function
         with (
-            mock.patch(
-                "graph_of_thoughts.context_manager.get_llm_model"
-            ) as mock_get_model,
-            mock.patch(
-                "graph_of_thoughts.context_manager.get_tokenizer"
-            ) as mock_get_tokenizer,
+            mock.patch("graph_of_thoughts.context_manager.get_llm_model") as mock_get_model,
+            mock.patch("graph_of_thoughts.context_manager.get_tokenizer") as mock_get_tokenizer,
             mock.patch(
                 "graph_of_thoughts.context_manager.ContextGraphManager"
             ) as mock_manager_class,
@@ -548,9 +512,7 @@ class TestHelperFunctions:
             # Verify calls
             mock_get_model.assert_called_once_with(model_name="test_model")
             mock_get_tokenizer.assert_called_once_with(model_name="test_model")
-            mock_manager_class.assert_called_once_with(
-                tokenizer=mock_tokenizer, model=mock_model
-            )
+            mock_manager_class.assert_called_once_with(tokenizer=mock_tokenizer, model=mock_model)
 
     def test_seed_nodes(self):
         # Test seed_nodes function
@@ -567,12 +529,8 @@ class TestHelperFunctions:
 
         # Verify calls
         assert mock_manager.add_context.call_count == 2
-        mock_manager.add_context.assert_any_call(
-            "node1", "Content 1", {"key1": "value1"}
-        )
-        mock_manager.add_context.assert_any_call(
-            "node2", "Content 2", {"key2": "value2"}
-        )
+        mock_manager.add_context.assert_any_call("node1", "Content 1", {"key1": "value1"})
+        mock_manager.add_context.assert_any_call("node2", "Content 2", {"key2": "value2"})
 
     def test_chat_entry(self):
         # Test chat_entry function
@@ -580,12 +538,8 @@ class TestHelperFunctions:
 
         with (
             mock.patch("graph_of_thoughts.context_manager.console.log"),
-            mock.patch(
-                "graph_of_thoughts.context_manager.generate_with_context"
-            ) as mock_generate,
-            mock.patch(
-                "graph_of_thoughts.context_manager.extract_and_clean_json"
-            ) as mock_extract,
+            mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
+            mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
         ):
             # Set up mocks
             mock_generate.return_value = "LLM response"
@@ -598,9 +552,7 @@ class TestHelperFunctions:
             mock_manager.decay_importance.assert_called_once()
             mock_manager.add_context.assert_any_call("user_1", "User input")
             mock_manager.query_context.assert_called_once_with("User input", top_k=3)
-            mock_generate.assert_called_once_with(
-                "User input", context_manager=mock_manager
-            )
+            mock_generate.assert_called_once_with("User input", context_manager=mock_manager)
             mock_manager.add_context.assert_any_call("llm_1", "LLM response")
             mock_extract.assert_called_once_with("LLM response")
             mock_manager.iterative_refinement.assert_called_once_with("JSON response")
@@ -612,12 +564,8 @@ class TestHelperFunctions:
 
         with (
             mock.patch("graph_of_thoughts.context_manager.console.log") as mock_log,
-            mock.patch(
-                "graph_of_thoughts.context_manager.generate_with_context"
-            ) as mock_generate,
-            mock.patch(
-                "graph_of_thoughts.context_manager.extract_and_clean_json"
-            ) as mock_extract,
+            mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
+            mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
         ):
             # Set up mocks with error
             mock_generate.return_value = "LLM response"
@@ -630,9 +578,7 @@ class TestHelperFunctions:
             mock_manager.add_context.assert_any_call("llm_1", "LLM response")
             mock_extract.assert_called_once_with("LLM response")
             mock_manager.iterative_refinement.assert_not_called()  # Should not be called due to error
-            mock_log.assert_any_call(
-                mock.ANY, style="warning"
-            )  # Warning should be logged
+            mock_log.assert_any_call(mock.ANY, style="warning")  # Warning should be logged
             mock_manager.prune_context.assert_called_once()  # Should still be called despite error
 
     def test_simulate_chat(self):
@@ -641,12 +587,8 @@ class TestHelperFunctions:
 
         # Import instead of patching directly
         with (
-            mock.patch(
-                "graph_of_thoughts.chat_manager.ChatManager"
-            ) as mock_chat_manager_class,
-            mock.patch(
-                "graph_of_thoughts.context_manager.seed_nodes"
-            ) as mock_seed_nodes,
+            mock.patch("graph_of_thoughts.chat_manager.ChatManager") as mock_chat_manager_class,
+            mock.patch("graph_of_thoughts.context_manager.seed_nodes") as mock_seed_nodes,
             mock.patch("graph_of_thoughts.context_manager.console.log") as mock_log,
         ):
             # Set up mock ChatManager
@@ -660,15 +602,11 @@ class TestHelperFunctions:
             # Create inputs
             conversation_inputs = ["input1", "input2"]
             seed_data = [
-                SeedData(
-                    node_id="node1", content="Content 1", metadata={"importance": 1.0}
-                )
+                SeedData(node_id="node1", content="Content 1", metadata={"importance": 1.0})
             ]
 
             # Call function
-            simulate_chat(
-                mock_manager, conversation_inputs, seed_data, "test_experiment"
-            )
+            simulate_chat(mock_manager, conversation_inputs, seed_data, "test_experiment")
 
             # Verify calls
             mock_chat_manager_class.assert_called_once()
@@ -684,12 +622,8 @@ class TestHelperFunctions:
 
         # Import instead of patching directly
         with (
-            mock.patch(
-                "graph_of_thoughts.chat_manager.ChatManager"
-            ) as mock_chat_manager_class,
-            mock.patch(
-                "graph_of_thoughts.context_manager.seed_nodes"
-            ) as mock_seed_nodes,
+            mock.patch("graph_of_thoughts.chat_manager.ChatManager") as mock_chat_manager_class,
+            mock.patch("graph_of_thoughts.context_manager.seed_nodes") as mock_seed_nodes,
             mock.patch("graph_of_thoughts.context_manager.console.log"),
         ):
             # Set up mock ChatManager
