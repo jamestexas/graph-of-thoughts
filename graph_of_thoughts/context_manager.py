@@ -52,7 +52,7 @@ class FastEmbeddingIndex:
         self.index.add(np.array([embedding], dtype=np.float32))
 
     def query(self, embedding, top_k=3) -> list:
-        distances, indices = self.index.search(
+        _, indices = self.index.search(
             np.array([embedding], dtype=np.float32),
             top_k,
         )
@@ -66,7 +66,8 @@ def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
     # 🔍 Extract JSON inside <json>...</json>, allowing for any whitespace or newlines
     console.log("🔍 Extracting JSON from raw output", style="info")
     json_regex_pat = re.compile(r"<json>\s*(\{.*?\})\s*</json>", re.DOTALL)
-    if match := json_regex_pat.search(raw_output) is None:
+    match = json_regex_pat.search(raw_output)
+    if match is None:
         console.log("❌ No valid JSON block found in LLM output!", style="warning")
         raise ValueError("No valid JSON block found.")
 
@@ -254,7 +255,9 @@ def seed_nodes(context_manager: ContextGraphManager, seed_data: list[SeedData]) 
 
 
 def chat_entry(
-    context_manager: ContextGraphManager, user_input: str, conversation_turn: int
+    context_manager: ContextGraphManager,
+    user_input: str,
+    conversation_turn: int,
 ) -> None:
     """Process a single conversation turn."""
     # Decay node importance
