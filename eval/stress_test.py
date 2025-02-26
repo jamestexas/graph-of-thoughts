@@ -2,15 +2,16 @@ import logging
 import time
 
 import torch
-from main import (
-    LLM_PATH,
+
+from transformers import GenerationConfig
+from graph_of_thoughts.graph_utils import (
     add_chain_of_thought_to_graph,
-    build_structured_prompt,
-    get_context_mgr,
-    parse_chain_of_thought,
     update_and_save_graph,
 )
-from transformers import GenerationConfig
+from graph_of_thoughts.context_manager import get_context_mgr, parse_chain_of_thought
+
+from graph_of_thoughts.constants import LLM_PATH
+from graph_of_thoughts.utils import build_structured_prompt
 
 # Configure logging
 logging.basicConfig(
