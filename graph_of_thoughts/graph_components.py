@@ -82,7 +82,8 @@ class GraphStorage:
         )
 
         self.graph.add_node(node_id, data=node.model_dump())
-        console.log(f"Added node: {node_id}", style="info")
+        # TODO: Remove
+        # console.log(f"Added node: {node_id}", style="info")
 
     def add_edge(self, source: str, target: str) -> None:
         """Add a directed edge between nodes."""
@@ -164,9 +165,7 @@ class GraphStorage:
         try:
             # Handle both string and datetime objects
             if isinstance(created_at_str, str):
-                created_at = datetime.fromisoformat(
-                    created_at_str.replace("Z", "+00:00")
-                )
+                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
             elif isinstance(created_at_str, datetime):
                 created_at = created_at_str
             else:

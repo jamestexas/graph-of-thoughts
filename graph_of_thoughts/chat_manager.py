@@ -67,10 +67,11 @@ class ChatManager:
 
 [Generated Knowledge Graph Update]:
 """
-        console.log(f"Prompt: {extended_prompt}", style="prompt")
-        inputs = self.context_manager.tokenizer(
-            extended_prompt, return_tensors="pt"
-        ).to(self.context_manager.model.device)
+        # TODO: Remove
+        # console.log(f"Prompt: {extended_prompt}", style="prompt")
+        inputs = self.context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
+            self.context_manager.model.device
+        )
         generation_config = GenerationConfig(
             max_new_tokens=max_new_tokens,
             do_sample=True,
@@ -82,9 +83,7 @@ class ChatManager:
             output = self.context_manager.model.generate(
                 **inputs, generation_config=generation_config
             )
-        return self.context_manager.tokenizer.decode(
-            output[0], skip_special_tokens=True
-        )
+        return self.context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
 
     def process_turn(self, user_input: str, conversation_turn: int) -> str:
         """Process a single conversation turn."""
@@ -104,9 +103,7 @@ class ChatManager:
 
         # Extract internal reasoning (for graph update) and final answer (for the user)
         internal_json, final_response = extract_sections(response)
-        console.log(
-            f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm"
-        )
+        console.log(f"[LLM Final Response {conversation_turn}]: {final_response}", style="llm")
 
         # Add final answer to context
         self.context_manager.add_context(f"llm_{conversation_turn}", final_response)
