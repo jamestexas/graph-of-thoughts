@@ -8,12 +8,8 @@ import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from graph_of_thoughts.constants import (
-    EMBEDDING_MODEL,
-    MODEL_NAME,
-    SYSTEM_PROMPT,
-    console,
-)
+from graph_of_thoughts.constants import EMBEDDING_MODEL, MODEL_NAME, SYSTEM_PROMPT, console
+from graph_of_thoughts.unified_llm import UnifiedLLM
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -24,6 +20,7 @@ DEVICE = None  # see get_torch_device
 _SENTENCE_MODEL_INSTANCE = None  # see get_sentence_transformer
 _LLM_MODEL_INSTANCE = None  # see get_llm_model
 _TOKENIZER_INSTANCE = None  # see get_tokenizer
+_UNIFIED_MODEL_INSTANCE = None  # see get_unified_model
 
 
 def get_torch_device() -> str:
@@ -91,6 +88,52 @@ def get_sentence_transformer(model_name: str = EMBEDDING_MODEL) -> SentenceTrans
         )
         _SENTENCE_MODEL_INSTANCE = SentenceTransformer(model_name)
     return _SENTENCE_MODEL_INSTANCE
+
+
+def get_unified_llm_model(backend: str = "hf", model_name: str = MODEL_NAME, **kwargs) -> Any:
+    """
+    Get a unified LLM model that implements a common generate() interface.
+
+    For backend:
+      - "hf": loads a Hugging Face model (AutoModelForCausalLM + AutoTokenizer)
+      - "llama_cpp": uses a llama_cpp model. You can pass a preloaded model via the keyword "model".
+
+    Additional kwargs (for llama_cpp) such as 'model_path', 'n_ctx', etc., are used
+    if a model instance is not already provided.
+    """
+    global _UNIFIED_MODEL_INSTANCE
+    if _UNIFIED_MODEL_INSTANCE is None:
+        if backend == "hf":
+            console.log(f"Initializing HF model: {model_name}", style="info")
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name, return_dict_in_generate=True, torch_dtype=torch.float16
+            ).to(get_torch_device())
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+
+            _UNIFIED_MODEL_INSTANCE = UnifiedLLM(backend="hf", model=model, tokenizer=tokenizer)
+        elif backend == "llama_cpp":
+            # If a model instance is provided in kwargs, use it; otherwise, require a model_path.
+            if "model" in kwargs and kwargs["model"] is not None:
+                llama_model = kwargs["model"]
+            else:
+                model_path = kwargs.get("model_path")
+                if model_path is None:
+                    raise ValueError(
+                        "For llama_cpp backend, provide 'model_path' or a 'model' instance in kwargs."
+                    )
+                console.log(f"Initializing llama_cpp model from: {model_path}", style="info")
+                from llama_cpp import Llama
+
+                llama_model = Llama(model_path=model_path, **kwargs)
+
+            _UNIFIED_MODEL_INSTANCE = UnifiedLLM(
+                backend="llama_cpp", model=llama_model, tokenizer=None
+            )
+        else:
+            raise ValueError(f"Unsupported backend: {backend}")
+    return _UNIFIED_MODEL_INSTANCE
 
 
 # Text processing utilities

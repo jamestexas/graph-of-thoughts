@@ -25,7 +25,13 @@ from graph_of_thoughts.graph_components import (
     build_initial_graph,
 )
 from graph_of_thoughts.models import ChainOfThought, SeedData
-from graph_of_thoughts.utils import get_llm_model, get_sentence_transformer, get_tokenizer
+from graph_of_thoughts.unified_llm import UnifiedLLM
+from graph_of_thoughts.utils import (
+    get_llm_model,
+    get_sentence_transformer,
+    get_tokenizer,
+    get_unified_llm_model,
+)
 
 if TYPE_CHECKING:
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -130,7 +136,9 @@ class ContextGraphManager:
         # Keep model components for generation
         self.tokenizer = tokenizer or get_tokenizer()
         self.model = model or get_llm_model()
-        self.model.eval()
+        if hasattr(self.model, "eval"):
+            self.model.eval()
+        self.tokenizer = tokenizer  # For HF models; may be None for llama_cpp backend
 
         # Initialize sentence model if provided or use default
 
@@ -319,10 +327,20 @@ class ContextGraphManager:
             console.log(f"[Error] Failed to process reasoning output: {e}", style="warning")
 
 
-def get_context_mgr(model_name: str = MODEL_NAME) -> ContextGraphManager:
-    """Create and initialize a context graph manager."""
-    model = get_llm_model(model_name=model_name)
-    tokenizer = get_tokenizer(model_name=model_name)
+def get_context_mgr(
+    model_name: str = MODEL_NAME,
+    unified_model: UnifiedLLM | None = None,
+) -> ContextGraphManager:
+    """
+    Create and initialize a ContextGraphManager.
+    If 'unified_model' is provided, it is used directly; otherwise, the default HF model/tokenizer are loaded.
+    """
+    if unified_model is not None:
+        tokenizer = None  # Tokenizer is managed by the unified model.
+        model = unified_model
+    else:
+        model = get_unified_llm_model(backend="hf", model_name=model_name)
+        tokenizer = model.tokenizer  # UnifiedLLM has a tokenizer attribute for HF backend.
     return ContextGraphManager(tokenizer=tokenizer, model=model)
 
 
