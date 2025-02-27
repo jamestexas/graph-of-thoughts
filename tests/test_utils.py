@@ -129,11 +129,13 @@ def test_build_llama_instruct_prompt(system_text, user_text, expected_output):
 )
 def test_build_structured_prompt(query):
     prompt = build_structured_prompt(query)
-
-    # Ensure the expected question structure is present
-    assert f"Question: {query}" in prompt
-    assert "<json>" in prompt
-    assert "**DO NOT** provide explanations" in prompt
+    expected_strings = [
+        query,
+        "<|start_header_id|>system<|end_header_id|>",
+        "<|start_header_id|>user<|end_header_id|>",
+    ]
+    for expected_string in expected_strings:
+        assert expected_string in prompt
 
 
 @pytest.fixture(autouse=True)

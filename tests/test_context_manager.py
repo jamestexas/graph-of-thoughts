@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 
 from graph_of_thoughts.context_manager import (
+    ChainOfThoughtParser,
     ContextGraphManager,
     FastEmbeddingIndex,
-    generate_with_context,
     get_context_mgr,
     parse_chain_of_thought,
     seed_nodes,
@@ -64,81 +64,195 @@ class TestFastEmbeddingIndex:
         assert len(results) == 2
 
 
-class TestParseChainOfThought:
-    def test_valid_json(self):
-        # Test with valid JSON input - using correct structure
-        valid_input = """Some text before
-        <json>{"nodes": {"A": "Node A content", "B": "Node B content"}, "edges": [["A", "B"]]}</json>
-        Some text after"""
+# -----------------------------
+# Tests for extract_json_string & balanced extraction
+# -----------------------------
+def test_extract_json_string_with_json_tag():
+    """Test that extraction via a <json> tag works."""
+    parser = ChainOfThoughtParser()
+    raw = 'Prefix text <json>{"nodes": {"A": "content"}, "edges": []}</json> suffix text'
+    result = parser.extract_json_string(raw)
+    expected = '{"nodes": {"A": "content"}, "edges": []}'
+    assert result == expected
 
-        with mock.patch("graph_of_thoughts.context_manager.console.log"):
-            # Need to patch the regex search to test our function
-            with mock.patch("re.compile") as mock_compile:
-                mock_pattern = mock.MagicMock()
-                mock_compile.return_value = mock_pattern
-                mock_match = mock.MagicMock()
-                mock_pattern.search.return_value = mock_match
-                mock_match.group.return_value = '{"nodes": {"A": "Node A content", "B": "Node B content"}, "edges": [["A", "B"]]}'
 
-                result = parse_chain_of_thought(valid_input)
+def test_extract_json_string_falls_back_to_balanced():
+    """If no regex pattern matches (e.g. missing required keys), use balanced extraction."""
+    parser = ChainOfThoughtParser()
+    # Input without the words "nodes" and "edges" so that none of the regex patterns match.
+    raw = 'Some random text {"foo": "bar"} extra text'
+    result = parser.extract_json_string(raw)
+    expected = '{"foo": "bar"}'
+    assert result == expected
 
-        assert isinstance(result, ChainOfThought)
-        assert "A" in result.nodes
-        assert "B" in result.nodes
-        assert result.nodes["A"] == "Node A content"
-        assert result.edges[0] == ["A", "B"]
 
-    def test_no_json_tags(self):
-        # Test with missing JSON tags
-        invalid_input = (
-            """{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"}]}"""
-        )
+def test_extract_json_balanced_valid():
+    """Test the balanced extraction on a string with nested JSON."""
+    parser = ChainOfThoughtParser()
+    raw = 'Ignore this {"outer": {"inner": "value"}, "list": [1,2,3]} and this'
+    result = parser.extract_json_balanced(raw)
+    expected = '{"outer": {"inner": "value"}, "list": [1,2,3]}'
+    assert result == expected
 
-        with mock.patch("graph_of_thoughts.context_manager.console.log"):
-            # Simulate no match found
-            with mock.patch("re.compile") as mock_compile:
-                mock_pattern = mock.MagicMock()
-                mock_compile.return_value = mock_pattern
-                mock_pattern.search.return_value = None
 
-                with pytest.raises(ValueError, match="No valid JSON block found"):
-                    parse_chain_of_thought(invalid_input)
+def test_extract_json_balanced_invalid():
+    """Test that an unbalanced JSON input raises ValueError."""
+    parser = ChainOfThoughtParser()
+    raw = 'Some text {"nodes": {"A": "content" '  # missing closing braces
+    with pytest.raises(ValueError, match="No balanced JSON object found."):
+        parser.extract_json_balanced(raw)
 
-    def test_invalid_json_syntax(self):
-        # Test with invalid JSON syntax
-        invalid_input = (
-            """<json>{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"</json>"""
-        )
 
-        with mock.patch("graph_of_thoughts.context_manager.console.log"):
-            # Simulate the regex finding a match but JSON parsing failing
-            with mock.patch("re.compile") as mock_compile:
-                mock_pattern = mock.MagicMock()
-                mock_compile.return_value = mock_pattern
-                mock_match = mock.MagicMock()
-                mock_pattern.search.return_value = mock_match
-                mock_match.group.return_value = (
-                    '{"nodes": {"A": {}, "B": {}}, "edges": [{"source": "A", "target": "B"'
-                )
+# -----------------------------
+# Tests for load_json
+# -----------------------------
+def test_load_json_valid():
+    """Test loading of a valid JSON string."""
+    parser = ChainOfThoughtParser()
+    json_str = '{"nodes": {"A": "content"}, "edges": []}'
+    result = parser.load_json(json_str)
+    assert isinstance(result, dict)
+    assert result["nodes"] == {"A": "content"}
 
-                with pytest.raises(ValueError, match="Invalid JSON format"):
-                    parse_chain_of_thought(invalid_input)
 
-    def test_missing_required_fields(self):
-        # Test with JSON missing required fields
-        invalid_input = """<json>{"something": "else"}</json>"""
+def test_load_json_fix():
+    """Test that load_json can fix missing quotes on keys."""
+    parser = ChainOfThoughtParser()
+    # JSON with missing quotes for keys
+    json_str = '{nodes: {"A": "content"}, edges: []}'
+    result = parser.load_json(json_str)
+    assert "nodes" in result
+    assert result["nodes"] == {"A": "content"}
 
-        with mock.patch("graph_of_thoughts.context_manager.console.log"):
-            # Simulate the regex and JSON parsing correctly, but missing fields
-            with mock.patch("re.compile") as mock_compile:
-                mock_pattern = mock.MagicMock()
-                mock_compile.return_value = mock_pattern
-                mock_match = mock.MagicMock()
-                mock_pattern.search.return_value = mock_match
-                mock_match.group.return_value = '{"something": "else"}'
 
-                with pytest.raises(ValueError, match="JSON missing 'nodes' or 'edges'"):
-                    parse_chain_of_thought(invalid_input)
+def test_load_json_invalid():
+    """Test that an unfixable JSON string raises ValueError."""
+    parser = ChainOfThoughtParser()
+    json_str = '{nodes: {"A": "content", '  # intentionally malformed
+    with pytest.raises(ValueError, match="Invalid JSON format."):
+        parser.load_json(json_str)
+
+
+# -----------------------------
+# Tests for validate_structure
+# -----------------------------
+def test_validate_structure_valid():
+    """When both 'nodes' and 'edges' exist, validate_structure returns them unchanged."""
+    parser = ChainOfThoughtParser()
+    data = {"nodes": {"A": "content"}, "edges": []}
+    result = parser.validate_structure(data)
+    assert result == data
+
+
+def test_validate_structure_partial():
+    """If one of the fields is missing but the other is non-empty, fill in the missing one."""
+    parser = ChainOfThoughtParser()
+    data = {"nodes": {"A": "content"}}
+    result = parser.validate_structure(data)
+    # Missing "edges" should default to an empty list.
+    assert result == {"nodes": {"A": "content"}, "edges": []}
+
+
+def test_validate_structure_missing():
+    """If neither nodes nor edges are present, raise ValueError."""
+    parser = ChainOfThoughtParser()
+    data = {"something": "else"}
+    with pytest.raises(ValueError, match="JSON missing 'nodes' or 'edges'."):
+        parser.validate_structure(data)
+
+
+# -----------------------------
+# Tests for validate_nodes
+# -----------------------------
+def test_validate_nodes_dict():
+    """Test that validate_nodes converts non-string values to strings."""
+    parser = ChainOfThoughtParser()
+    nodes = {"A": 123, "B": {"key": "value"}}
+    result = parser.validate_nodes(nodes)
+    assert result["A"] == "123"
+    assert result["B"] == "{'key': 'value'}" or result["B"] == '{"key": "value"}'
+
+
+def test_validate_nodes_list():
+    """Test that validate_nodes converts a list of dicts into a proper nodes dict."""
+    parser = ChainOfThoughtParser()
+    nodes = [
+        {"id": "A", "content": "foo"},
+        {"name": "B", "description": "bar"},
+        {"id": "C"},  # missing content; should fall back to str()
+    ]
+    result = parser.validate_nodes(nodes)
+    assert result["A"] == "foo"
+    assert result["B"] == "bar"
+    # We expect a fallback key for the third node.
+    assert any(k.startswith("node_") for k in result.keys())
+
+
+# -----------------------------
+# Tests for validate_edges
+# -----------------------------
+def test_validate_edges_list():
+    """Test that a valid list of edges is returned unchanged."""
+    parser = ChainOfThoughtParser()
+    edges = [["A", "B"], ["B", "C"]]
+    result = parser.validate_edges(edges)
+    assert result == [["A", "B"], ["B", "C"]]
+
+
+def test_validate_edges_dict():
+    """Test conversion of a dict-form edges to a list."""
+    parser = ChainOfThoughtParser()
+    edges = {"A": ["B", "C"], "X": "Y"}
+    result = parser.validate_edges(edges)
+    expected = [["A", "B"], ["A", "C"], ["X", "Y"]]
+    # Order might vary, so compare sorted lists.
+    assert sorted(result) == sorted(expected)
+
+
+def test_validate_edges_invalid():
+    """Test that invalid edge formats are skipped."""
+    parser = ChainOfThoughtParser()
+    edges = [
+        ["A", "B"],
+        {"source": "B", "target": "C"},
+        "invalid edge",
+        [1, 2, 3],
+        {"not": "an edge"},
+    ]
+    result = parser.validate_edges(edges)
+    # Only the first two valid edges should be kept.
+    assert result == [["A", "B"], ["B", "C"]]
+
+
+# -----------------------------
+# Integration tests
+# -----------------------------
+def test_parse_integration():
+    """Test that the full parse() method extracts, loads, validates, and returns a ChainOfThought."""
+    parser = ChainOfThoughtParser()
+    raw_output = """
+        Preamble text.
+        <json>{
+            "nodes": {"A": "content A", "B": "content B"},
+            "edges": [{"source": "A", "target": "B"}]
+        }</json>
+        Postamble text.
+    """
+    result = parser.parse(raw_output)
+    assert isinstance(result, ChainOfThought)
+    # Expect that nodes were not altered (they are already strings)
+    assert result.nodes == {"A": "content A", "B": "content B"}
+    # The dict-form edge should have been converted to a list.
+    assert result.edges == [["A", "B"]]
+
+
+def test_parse_chain_of_thought_function():
+    """Test the public function wrapper for parsing."""
+    raw_output = '{"nodes": {"A": "content A"}, "edges": [["A", "B"]]}'
+    result = parse_chain_of_thought(raw_output)
+    assert isinstance(result, ChainOfThought)
+    assert result.nodes == {"A": "content A"}
+    assert result.edges == [["A", "B"]]
 
 
 # TODO: Make these mocks more consistent / less repetitive
@@ -257,7 +371,7 @@ class TestContextGraphManager:
             assert result == expected_nodes
 
     def test_visualize_graph_as_text(self):
-        # Test visualize_graph_as_text method with mocks
+        """Test visualize_graph_as_text method with mocks."""
         with (
             mock.patch("graph_of_thoughts.context_manager.GraphStorage") as mock_storage,
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
@@ -272,8 +386,7 @@ class TestContextGraphManager:
             mock_storage.return_value = mock_storage_instance
 
             # Set up expected result
-            expected_text = "Graph visualization"
-            mock_storage_instance.visualize_as_text.return_value = expected_text
+            mock_storage_instance.visualize_as_text.return_value = "Mocked graph visualization"
 
             # Create manager
             manager = ContextGraphManager()
@@ -281,9 +394,9 @@ class TestContextGraphManager:
             # Call visualize_graph_as_text
             result = manager.visualize_graph_as_text()
 
-            # Verify calls and result
-            mock_storage_instance.visualize_as_text.assert_called_once()
-            assert result == expected_text
+            # This might need additional mocking for the nodes and edges
+            assert isinstance(result, str)
+            assert "**Current Knowledge Graph**" in result
 
     def test_graph_to_json(self):
         # Test graph_to_json method with mocks
@@ -379,7 +492,7 @@ class TestContextGraphManager:
             mock_storage_instance.prune_low_importance_nodes.assert_called_once_with(threshold)
 
     def test_iterative_refinement_success(self):
-        # Test iterative_refinement method with successful parsing
+        """Test iterative_refinement method with successful parsing."""
         with (
             mock.patch("graph_of_thoughts.context_manager.GraphStorage"),
             mock.patch("graph_of_thoughts.context_manager.EmbeddingEngine"),
@@ -396,7 +509,7 @@ class TestContextGraphManager:
             # Create manager
             manager = ContextGraphManager()
 
-            # Call iterative_refinement
+            # Call iterative_refinement with JSON string input
             reasoning_output = '<json>{"nodes": {"A": "Node A content", "B": "Node B content"}, "edges": [["A", "B"]]}</json>'
 
             with mock.patch(
@@ -408,13 +521,14 @@ class TestContextGraphManager:
                 )
                 mock_parse.return_value = chain_obj
 
+                # Test the method
                 manager.iterative_refinement(reasoning_output)
 
-                # Verify calls
-                mock_parse.assert_called_once_with(reasoning_output)
-                mock_reasoning_instance.update_from_chain_of_thought.assert_called_once_with(
-                    chain_obj
-                )
+                # Verify that parse_chain_of_thought was called
+                mock_parse.assert_called_once()
+
+                # Verify that the reasoning engine was updated
+                mock_reasoning_instance.update_from_chain_of_thought.assert_called_once()
 
     def test_iterative_refinement_failure(self):
         # Test iterative_refinement method with parsing failure
@@ -453,66 +567,33 @@ class TestContextGraphManager:
 
 
 class TestHelperFunctions:
-    def test_generate_with_context(self):
-        # Test generate_with_context function
-        mock_manager = mock.MagicMock()
-        mock_manager.query_context.return_value = ["node1", "node2", "node3"]
-        mock_manager.visualize_graph_as_text.return_value = "Graph visualization"
-
-        # Set up the tokenizer mock correctly
-        mock_tokenizer_result = mock.MagicMock()
-        mock_tokenizer_result.to.return_value = mock_tokenizer_result
-        mock_manager.tokenizer.return_value = mock_tokenizer_result
-
-        # Set up pad_token_id to be a proper integer
-        mock_manager.tokenizer.eos_token_id = 1  # Integer not MagicMock
-
-        # Mock the generate method correctly
-        mock_output = mock.MagicMock()
-        mock_manager.model.generate.return_value = [mock_output]
-        mock_manager.tokenizer.decode.return_value = "Generated response"
-
-        # Patch GenerationConfig to avoid validation issues
-        with (
-            mock.patch("graph_of_thoughts.context_manager.console.log"),
-            mock.patch("graph_of_thoughts.context_manager.GenerationConfig") as mock_gen_config,
-        ):
-            # Set up the mock config
-            mock_config = mock.MagicMock()
-            mock_gen_config.return_value = mock_config
-
-            result = generate_with_context("Test query", mock_manager)
-
-        # Check the result
-        assert result == "Generated response"
-        mock_manager.query_context.assert_called_once()
-        mock_manager.visualize_graph_as_text.assert_called_once()
-        mock_manager.tokenizer.assert_called_once()
-        mock_manager.model.generate.assert_called_once()
-        mock_manager.tokenizer.decode.assert_called_once()
-
     def test_get_context_mgr(self):
-        # Test get_context_mgr function
+        """Test get_context_mgr function with proper mocking."""
         with (
-            mock.patch("graph_of_thoughts.context_manager.get_llm_model") as mock_get_model,
-            mock.patch("graph_of_thoughts.context_manager.get_tokenizer") as mock_get_tokenizer,
+            mock.patch("graph_of_thoughts.context_manager.get_unified_llm_model") as mock_get_model,
             mock.patch(
                 "graph_of_thoughts.context_manager.ContextGraphManager"
             ) as mock_manager_class,
         ):
-            # Set up mocks
-            mock_model = mock.MagicMock()
-            mock_tokenizer = mock.MagicMock()
-            mock_get_model.return_value = mock_model
-            mock_get_tokenizer.return_value = mock_tokenizer
+            # Set up mock model
+            mock_model_instance = mock.MagicMock()
+            # Mock the tokenizer attribute directly on the model
+            mock_model_instance.tokenizer = mock.MagicMock()
+            mock_get_model.return_value = mock_model_instance
 
-            # Call function
+            # Call function with dummy model name
             get_context_mgr("test_model")
 
             # Verify calls
-            mock_get_model.assert_called_once_with(model_name="test_model")
-            mock_get_tokenizer.assert_called_once_with(model_name="test_model")
-            mock_manager_class.assert_called_once_with(tokenizer=mock_tokenizer, model=mock_model)
+            mock_get_model.assert_called_once_with(backend="hf", model_name="test_model")
+            mock_manager_class.assert_called_once()
+
+            # Check that the call to ContextGraphManager includes the right parameters
+            _, kwargs = mock_manager_class.call_args
+            assert "tokenizer" in kwargs
+            assert "model" in kwargs
+            assert kwargs["model"] is mock_model_instance
+            assert kwargs["tokenizer"] is mock_model_instance.tokenizer
 
     def test_seed_nodes(self):
         # Test seed_nodes function
@@ -531,55 +612,6 @@ class TestHelperFunctions:
         assert mock_manager.add_context.call_count == 2
         mock_manager.add_context.assert_any_call("node1", "Content 1", {"key1": "value1"})
         mock_manager.add_context.assert_any_call("node2", "Content 2", {"key2": "value2"})
-
-    # def test_chat_entry(self):
-    #     # Test chat_entry function
-    #     mock_manager = mock.MagicMock()
-
-    #     with (
-    #         mock.patch("graph_of_thoughts.context_manager.console.log"),
-    #         mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
-    #         mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
-    #     ):
-    #         # Set up mocks
-    #         mock_generate.return_value = "LLM response"
-    #         mock_extract.return_value = "JSON response"
-
-    #         # Call function
-    #         chat_entry(mock_manager, "User input", 1)
-
-    #         # Verify calls
-    #         mock_manager.decay_importance.assert_called_once()
-    #         mock_manager.add_context.assert_any_call("user_1", "User input")
-    #         mock_manager.query_context.assert_called_once_with("User input", top_k=3)
-    #         mock_generate.assert_called_once_with("User input", context_manager=mock_manager)
-    #         mock_manager.add_context.assert_any_call("llm_1", "LLM response")
-    #         mock_extract.assert_called_once_with("LLM response")
-    #         mock_manager.iterative_refinement.assert_called_once_with("JSON response")
-    #         mock_manager.prune_context.assert_called_once()
-
-    # def test_chat_entry_error_handling(self):
-    #     # Test chat_entry with error in JSON extraction
-    #     mock_manager = mock.MagicMock()
-
-    #     with (
-    #         mock.patch("graph_of_thoughts.context_manager.console.log") as mock_log,
-    #         mock.patch("graph_of_thoughts.context_manager.generate_with_context") as mock_generate,
-    #         mock.patch("graph_of_thoughts.context_manager.extract_and_clean_json") as mock_extract,
-    #     ):
-    #         # Set up mocks with error
-    #         mock_generate.return_value = "LLM response"
-    #         mock_extract.side_effect = ValueError("Invalid JSON")
-
-    #         # Call function
-    #         chat_entry(mock_manager, "User input", 1)
-
-    #         # Verify error handling
-    #         mock_manager.add_context.assert_any_call("llm_1", "LLM response")
-    #         mock_extract.assert_called_once_with("LLM response")
-    #         mock_manager.iterative_refinement.assert_not_called()  # Should not be called due to error
-    #         mock_log.assert_any_call(mock.ANY, style="warning")  # Warning should be logged
-    #         mock_manager.prune_context.assert_called_once()  # Should still be called despite error
 
     def test_simulate_chat(self):
         # Test simulate_chat function

@@ -68,7 +68,200 @@ class FastEmbeddingIndex:
         return [self.nodes[i] for i in indices[0]]
 
 
-def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
+# Assuming ChainOfThought is defined somewhere
+# from your_module import ChainOfThought
+import json
+from typing import Any
+
+# Assuming ChainOfThought is defined elsewhere
+# from your_module import ChainOfThought
+
+
+class ChainOfThoughtParser:
+    """Helper class to extract and validate JSON from LLM output."""
+
+    JSON_PATTERNS: list[str] = [
+        r"<internal>\s*(\{.*?\})\s*</internal>",
+        r"<json>\s*(\{.*?\})\s*</json>",
+        r"```(?:json)?\s*(\{.*?\})\s*```",
+        # This pattern is kept as a fallback if it matches a chunk,
+        # but we’ll use balanced extraction if it fails.
+        r'(\{[\s\S]*?"nodes"[\s\S]*?"edges"[\s\S]*\})',
+    ]
+
+    def extract_json_string(self, raw_output: str) -> str:
+        """Extract a JSON substring from the raw output using regex or balanced extraction.
+
+        Args:
+            raw_output: Raw string output from the LLM.
+
+        Returns:
+            Extracted JSON string.
+
+        Raises:
+            ValueError: If no valid JSON block is found.
+        """
+        # Try regex patterns first
+        for pattern in self.JSON_PATTERNS:
+            match = re.search(pattern, raw_output, re.DOTALL)
+            if match:
+                json_string = match.group(1).strip()
+                console.log(f"✅ Found JSON using pattern: {pattern}", style="info")
+                return json_string
+
+        # Fallback: use balanced extraction from the first '{'
+        try:
+            balanced_json = self.extract_json_balanced(raw_output)
+            console.log("✅ Extracted JSON using balanced extraction", style="info")
+            return balanced_json
+        except ValueError:
+            pass
+
+        console.log("❌ No valid JSON block found in LLM output!", style="warning")
+        raise ValueError("No valid JSON block found.")
+
+    def extract_json_balanced(self, text: str) -> str:
+        """Extract a balanced JSON substring from text using a stack approach.
+
+        This method finds the first '{' and then scans the text while counting
+        opening and closing braces, respecting quoted strings.
+
+        Args:
+            text: Raw text to search.
+
+        Returns:
+            A substring representing a balanced JSON object.
+
+        Raises:
+            ValueError: If no balanced JSON object is found.
+        """
+        start = text.find("{")
+        if start == -1:
+            raise ValueError("No JSON object found.")
+        count = 0
+        in_string = False
+        escape = False
+        for i, char in enumerate(text[start:], start=start):
+            if char == '"' and not escape:
+                in_string = not in_string
+            if not in_string:
+                if char == "{":
+                    count += 1
+                elif char == "}":
+                    count -= 1
+                    if count == 0:
+                        return text[start : i + 1]
+            # Handle escape characters
+            if char == "\\" and not escape:
+                escape = True
+            else:
+                escape = False
+        raise ValueError("No balanced JSON object found.")
+
+    def load_json(self, json_string: str) -> dict[str, Any]:
+        """Load JSON from a string, with a fallback to fix common formatting issues."""
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError as e:
+            console.log(
+                f"❌ JSON Decode Error: {e}\nAttempting to fix JSON format...", style="warning"
+            )
+            fixed_json = re.sub(r"([{,])\s*(\w+):", r'\1"\2":', json_string)
+            fixed_json = fixed_json.replace("'", '"')
+            try:
+                data = json.loads(fixed_json)
+                console.log("🔧 Fixed JSON format issues and successfully parsed", style="info")
+                return data
+            except json.JSONDecodeError:
+                raise ValueError("Invalid JSON format.") from e
+
+    def validate_structure(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Ensure the JSON has 'nodes' and 'edges'. If not, try to create a valid structure."""
+        if "nodes" not in data or "edges" not in data:
+            console.log(
+                f"❌ Parsed JSON missing required fields: {list(data.keys())}", style="warning"
+            )
+            fixed_data = {"nodes": data.get("nodes", {}), "edges": data.get("edges", [])}
+            if not fixed_data["nodes"] and not fixed_data["edges"]:
+                raise ValueError("JSON missing 'nodes' or 'edges'.")
+            console.log("🔧 Created valid structure from partial data", style="info")
+            return fixed_data
+
+        return data
+
+    def validate_nodes(self, nodes: Any) -> dict[str, Any]:
+        """Ensure nodes are in dictionary format and that all values are strings.
+
+        Args:
+            nodes: The nodes data extracted from JSON.
+
+        Returns:
+            A dictionary where every node value is a string.
+        """
+        if isinstance(nodes, dict):
+            # Convert any non-string values to strings
+            return {
+                key: value if isinstance(value, str) else str(value) for key, value in nodes.items()
+            }
+        console.log(f"❌ 'nodes' is not a dictionary: {type(nodes)}", style="warning")
+        if isinstance(nodes, list) and all(isinstance(n, dict) for n in nodes):
+            nodes_dict = {}
+            for i, node in enumerate(nodes):
+                if "id" in node and "content" in node:
+                    nodes_dict[node["id"]] = node["content"]
+                elif "name" in node and "description" in node:
+                    nodes_dict[node["name"]] = node["description"]
+                else:
+                    nodes_dict[f"node_{i}"] = str(node)
+            console.log("🔧 Converted nodes list to dictionary", style="info")
+            return nodes_dict
+        return {}
+
+    def validate_edges(self, edges: Any) -> list[list[str]]:
+        """Ensure edges are returned as a list of two-element lists."""
+        if not isinstance(edges, list):
+            console.log(f"❌ 'edges' is not a list: {type(edges)}", style="warning")
+            if isinstance(edges, dict):
+                edges_list = []
+                for source, targets in edges.items():
+                    if isinstance(targets, list):
+                        for target in targets:
+                            edges_list.append([source, target])
+                    else:
+                        edges_list.append([source, str(targets)])
+                console.log("🔧 Converted edges dict to list", style="info")
+                edges = edges_list
+            else:
+                return []
+
+        valid_edges = []
+        for edge in edges:
+            if isinstance(edge, list) and len(edge) == 2:
+                valid_edges.append([str(edge[0]), str(edge[1])])
+            elif isinstance(edge, dict) and "source" in edge and "target" in edge:
+                valid_edges.append([str(edge["source"]), str(edge["target"])])
+            else:
+                console.log(f"❌ Skipping invalid edge format: {edge}", style="warning")
+        return valid_edges
+
+    def parse(self, raw_output: str) -> "ChainOfThought":
+        """Orchestrate extraction, parsing, and validation to return a ChainOfThought."""
+        json_string = self.extract_json_string(raw_output)
+        console.log(
+            f"✅ Extracted JSON String (first 100 chars):\n{json_string[:100]}...", style="context"
+        )
+        data = self.load_json(json_string)
+        data = self.validate_structure(data)
+        data["nodes"] = self.validate_nodes(data["nodes"])
+        data["edges"] = self.validate_edges(data["edges"])
+        console.log(
+            f"✅ Successfully parsed chain of thought with {len(data['nodes'])} nodes and {len(data['edges'])} edges",
+            style="info",
+        )
+        return ChainOfThought(nodes=data["nodes"], edges=data["edges"])
+
+
+def parse_chain_of_thought(raw_output: str) -> "ChainOfThought":
     """
     Extracts and validates structured JSON from LLM output, ensuring robustness
     for both HF and llama_cpp backends.
@@ -82,134 +275,7 @@ def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
     Raises:
         ValueError: If no valid JSON is found or JSON is missing required fields
     """
-    console.log("🔍 Extracting JSON from raw output", style="info")
-
-    # Try multiple patterns to extract JSON
-    patterns = [
-        r"<internal>\s*(\{.*?\})\s*</internal>",  # <internal> tags
-        r"<json>\s*(\{.*?\})\s*</json>",  # <json> tags
-        r"```(?:json)?\s*(\{.*?\})\s*```",  # Code blocks with optional json language
-        r'(\{[\s\S]*?"nodes"[\s\S]*?"edges"[\s\S]*?\})',  # JSON-like structure with nodes and edges
-    ]
-
-    json_string = None
-    for pattern in patterns:
-        match = re.search(pattern, raw_output, re.DOTALL)
-        if match:
-            json_string = match.group(1).strip()
-            console.log(f"✅ Found JSON using pattern: {pattern}", style="info")
-            break
-
-    if json_string is None:
-        console.log("❌ No valid JSON block found in LLM output!", style="warning")
-        raise ValueError("No valid JSON block found.")
-
-    # Debug - print extracted JSON
-    console.log(
-        f"✅ Extracted JSON String (first 100 chars):\n{json_string[:100]}...", style="context"
-    )
-
-    try:
-        data = json.loads(json_string)
-    except json.JSONDecodeError as e:
-        console.log(
-            f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string[:200]}...",
-            style="warning",
-        )
-
-        # Last attempt - try to clean and reformat JSON
-        try:
-            # Sometimes llama_cpp outputs might have malformed JSON with missing quotes
-            fixed_json = re.sub(r"([{,])\s*(\w+):", r'\1"\2":', json_string)
-
-            # Replace single quotes with double quotes
-            fixed_json = fixed_json.replace("'", '"')
-
-            # Try parsing again
-            data = json.loads(fixed_json)
-            console.log("🔧 Fixed JSON format issues and successfully parsed", style="info")
-        except json.JSONDecodeError:
-            raise ValueError("Invalid JSON format.") from e
-
-    # Check for required fields
-    if "nodes" not in data or "edges" not in data:
-        console.log(f"❌ Parsed JSON missing required fields: {data.keys()}", style="warning")
-
-        # Try to build a valid structure from what we have
-        fixed_data = {}
-
-        # Handle if only one field is missing
-        if "nodes" in data:
-            fixed_data["nodes"] = data["nodes"]
-        else:
-            fixed_data["nodes"] = {}
-
-        if "edges" in data:
-            fixed_data["edges"] = data["edges"]
-        else:
-            fixed_data["edges"] = []
-
-        # If we have neither, raise error
-        if not fixed_data["nodes"] and not fixed_data["edges"]:
-            raise ValueError("JSON missing 'nodes' and 'edges'.")
-
-        console.log("🔧 Created valid structure from partial data", style="info")
-        data = fixed_data
-
-    # Validate nodes and edges formats
-    if not isinstance(data["nodes"], dict):
-        console.log(f"❌ 'nodes' is not a dictionary: {type(data['nodes'])}", style="warning")
-        # Try to convert if possible, otherwise use empty dict
-        if isinstance(data["nodes"], list) and all(isinstance(n, dict) for n in data["nodes"]):
-            # Convert list of dicts to single dict
-            nodes_dict = {}
-            for i, node in enumerate(data["nodes"]):
-                if "id" in node and "content" in node:
-                    nodes_dict[node["id"]] = node["content"]
-                elif "name" in node and "description" in node:
-                    nodes_dict[node["name"]] = node["description"]
-                else:
-                    nodes_dict[f"node_{i}"] = str(node)
-            data["nodes"] = nodes_dict
-            console.log("🔧 Converted nodes list to dictionary", style="info")
-        else:
-            data["nodes"] = {}
-
-    if not isinstance(data["edges"], list):
-        console.log(f"❌ 'edges' is not a list: {type(data['edges'])}", style="warning")
-        # Try to convert if possible, otherwise use empty list
-        if isinstance(data["edges"], dict):
-            edges_list = []
-            for source, targets in data["edges"].items():
-                if isinstance(targets, list):
-                    for target in targets:
-                        edges_list.append([source, target])
-                else:
-                    edges_list.append([source, str(targets)])
-            data["edges"] = edges_list
-            console.log("🔧 Converted edges dict to list", style="info")
-        else:
-            data["edges"] = []
-
-    # Validate edges format
-    valid_edges = []
-    for edge in data["edges"]:
-        if isinstance(edge, list) and len(edge) == 2:
-            # Ensure edge items are strings
-            valid_edges.append([str(edge[0]), str(edge[1])])
-        elif isinstance(edge, dict) and "source" in edge and "target" in edge:
-            # Handle dict-format edges
-            valid_edges.append([str(edge["source"]), str(edge["target"])])
-        else:
-            console.log(f"❌ Skipping invalid edge format: {edge}", style="warning")
-
-    data["edges"] = valid_edges
-
-    console.log(
-        f"✅ Successfully parsed chain of thought with {len(data['nodes'])} nodes and {len(data['edges'])} edges",
-        style="info",
-    )
-    return ChainOfThought(nodes=data["nodes"], edges=data["edges"])
+    return ChainOfThoughtParser().parse(raw_output)
 
 
 class ContextGraphManager:
@@ -392,18 +458,16 @@ class ContextGraphManager:
         try:
             # Handle different input types
             if isinstance(reasoning_output, dict):
-                # Already parsed
-                json_data = reasoning_output
+                # Convert dictionary to ChainOfThought
+                chain_obj = ChainOfThought(
+                    nodes=reasoning_output.get("nodes", {}),
+                    edges=reasoning_output.get("edges", []),
+                )
             elif isinstance(reasoning_output, str):
                 if reasoning_output.strip() == "{}":
                     console.log("[Warning] Empty JSON structure received", style="warning")
                     return
-
-                try:
-                    json_data = json.loads(reasoning_output)
-                except json.JSONDecodeError as e:
-                    console.log(f"[Error] Invalid JSON: {e}", style="warning")
-                    return
+                chain_obj = parse_chain_of_thought(reasoning_output)
             else:
                 console.log(
                     f"[Error] Unexpected reasoning_output type: {type(reasoning_output)}",
@@ -412,18 +476,13 @@ class ContextGraphManager:
                 return
 
             # Ensure we have the required fields
-            if "nodes" not in json_data or "edges" not in json_data:
+            if not chain_obj.nodes and not chain_obj.edges:
                 console.log("[Warning] Missing required fields in JSON", style="warning")
-                if isinstance(json_data, dict):
-                    console.print_json(data=json_data)
+                if isinstance(reasoning_output, dict):
+                    console.print_json(data=reasoning_output)
                 else:
-                    console.log(json_data)
+                    console.log(reasoning_output)
                 return
-
-            # Create ChainOfThought object
-            chain_obj = ChainOfThought(
-                nodes=json_data.get("nodes", {}), edges=json_data.get("edges", [])
-            )
 
             # Only update if we have meaningful content
             if chain_obj.nodes or chain_obj.edges:
