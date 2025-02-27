@@ -8,13 +8,16 @@ from typing import TypedDict
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from llama_cpp import Llama
 from rich.table import Table
 from transformers import GenerationConfig
 
 from graph_of_thoughts.constants import console
 from graph_of_thoughts.context_manager import ContextGraphManager, DateTimeEncoder, get_context_mgr
 from graph_of_thoughts.models import ChainOfThought
-from graph_of_thoughts.utils import get_llm_model, get_tokenizer
+from graph_of_thoughts.utils import get_tokenizer, get_unified_llm_model
+
+from .run_gbnf_conversation import MODEL_PATH as LLAMA_MODEL_PATH, get_grammar_path
 
 
 class PerformanceTestCase(TypedDict):
@@ -64,10 +67,40 @@ TEST_MODEL_3B = "unsloth/Llama-3.2-3B-Instruct"
 class LightPerformanceTest:
     """Lightweight performance testing for Graph of Thoughts."""
 
-    def __init__(self, model_name=TEST_MODEL_3B):
-        self.model_name = model_name
-        self.model = get_llm_model(model_name=model_name)
-        self.tokenizer = get_tokenizer(model_name=model_name)
+    def __init__(
+        self,
+        model_name=TEST_MODEL_NAME,
+        use_llama: bool = True,
+    ) -> None:
+        """
+        Initialize the performance test with a specific model.
+        """
+        if use_llama:
+            # Initialize the llama_cpp model like in your conversation script.
+            console.log("Loading GGUF model via llama_cpp...", style="info")
+            llama_model = Llama(
+                model_path=str(LLAMA_MODEL_PATH),
+                grammar_file=str(get_grammar_path()),
+                n_ctx=2048,
+                seed=42,
+                verbose=True,
+            )
+            # Wrap the llama_cpp model in a unified model interface.
+            self.model = get_unified_llm_model(
+                backend="llama_cpp",
+                model=llama_model,
+            )
+            # The tokenizer might be available from the unified model or separately;
+            # adjust as needed (here we assume the unified model exposes one).
+            self.tokenizer = self.model.tokenizer
+        else:
+            # Fallback to your original method (e.g. HF)
+            from graph_of_thoughts.utils import get_llm_model
+
+            self.model = get_llm_model(model_name=TEST_MODEL_3B)
+            self.tokenizer = get_tokenizer(model_name=TEST_MODEL_3B)
+
+        # Create the context manager with the unified model
         self.context_manager = ContextGraphManager(
             tokenizer=self.tokenizer,
             model=self.model,
