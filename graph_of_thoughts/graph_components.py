@@ -162,6 +162,31 @@ class GraphStorage:
             console.log(f"Error saving graph to {filepath}: {e}", style="warning")
         return
 
+    # In graph_components.py, add visualize_as_text method to GraphStorage
+    def visualize_as_text(self) -> str:
+        """Generate a text representation of the graph for tests."""
+        text = ["📌 **Current Knowledge Graph**\n"]
+
+        # Add nodes
+        text.append("🟢 **Nodes**:")
+        for node_id in self.graph.nodes():
+            content = self.get_node_content(node_id) or "No description"
+            if len(content) > 50:  # Truncate long content
+                content = content[:47] + "..."
+            text.append(f"  - {node_id}: {content}")
+
+        # Add edges
+        text.append("\n🔗 **Edges**:")
+        edge_count = 0
+        for source, target in self.graph.edges():
+            text.append(f"  - {source} → {target}")
+            edge_count += 1
+
+        if edge_count == 0:
+            text.append("  (No edges between shown nodes)")
+
+        return "\n".join(text)
+
     def decay_node_importance(
         self,
         node_id: str,
