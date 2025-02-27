@@ -276,7 +276,7 @@ def build_llama_instruct_prompt(system_text: str, user_text: str) -> str:
     """
     Constructs a multi-turn style prompt for Llama 3.x Instruct models.
     """
-    return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    return f"""<|start_header_id|>system<|end_header_id|>
 {system_text}
 <|eot_id|><|start_header_id|>user<|end_header_id|>
 {user_text}

@@ -24,14 +24,6 @@ class PerformanceTestCase(TypedDict):
     turns: list[str]
 
 
-class PerformanceTests(TypedDict):
-    """Collection of performance test cases."""
-
-    short: PerformanceTestCase
-    medium: PerformanceTestCase
-    long: PerformanceTestCase
-
-
 SHORT_CASE = PerformanceTestCase(
     name="short",
     turns=["Tell me about database indexing and why it's useful."],
@@ -52,10 +44,81 @@ LONG_TEST = PerformanceTestCase(
     ],
 )
 
-PERFORMANCE_TEST_CASES = PerformanceTests(
+
+# Non-technical conversation test cases
+NON_TECH_SHORT = PerformanceTestCase(
+    name="nontech_short",
+    turns=["What's the meaning of life?"],
+)
+NON_TECH_MED = PerformanceTestCase(
+    name="nontech_medium",
+    turns=["What's the meaning of life?", "How do different cultures interpret it?"],
+)
+NON_TECH_LONG = PerformanceTestCase(
+    name="nontech_long",
+    turns=[
+        "What's the meaning of life?",
+        "How do different cultures interpret it?",
+        "Can you give an example of how this shapes societal values?",
+    ],
+)
+
+# Emotional conversation test cases
+EMOTIONAL_SHORT = PerformanceTestCase(
+    name="emotional_short",
+    turns=["I'm feeling really overwhelmed. Can you help me understand what's wrong?"],
+)
+EMOTIONAL_MED = PerformanceTestCase(
+    name="emotional_medium",
+    turns=[
+        "I'm feeling really overwhelmed. Can you help me understand what's wrong?",
+        "Sometimes, I feel like I'm not enough and I'm struggling with self-doubt.",
+    ],
+)
+EMOTIONAL_LONG = PerformanceTestCase(
+    name="emotional_long",
+    turns=[
+        "I'm feeling really overwhelmed. Can you help me understand what's wrong?",
+        "Sometimes, I feel like I'm not enough and I'm struggling with self-doubt.",
+        "What strategies can I use to build my confidence and manage these emotions?",
+    ],
+)
+
+# Creative conversation test cases
+CREATIVE_SHORT = PerformanceTestCase(
+    name="creative_short",
+    turns=["Write a short poem about autumn."],
+)
+CREATIVE_MED = PerformanceTestCase(
+    name="creative_medium",
+    turns=[
+        "Write a short poem about autumn.",
+        "Now, explain how the poem reflects the changing seasons and the passage of time.",
+    ],
+)
+CREATIVE_LONG = PerformanceTestCase(
+    name="creative_long",
+    turns=[
+        "Write a short poem about autumn.",
+        "Now, explain how the poem reflects the changing seasons and the passage of time.",
+        "What emotions does autumn evoke, and how can these relate to personal growth?",
+    ],
+)
+
+# Construct a comprehensive dictionary
+PERFORMANCE_TEST_CASES = dict(
     short=SHORT_CASE,
     medium=MED_CASE,
     long=LONG_TEST,
+    nontech_short=NON_TECH_SHORT,
+    nontech_medium=NON_TECH_MED,
+    nontech_long=NON_TECH_LONG,
+    emotional_short=EMOTIONAL_SHORT,
+    emotional_medium=EMOTIONAL_MED,
+    emotional_long=EMOTIONAL_LONG,
+    creative_short=CREATIVE_SHORT,
+    creative_medium=CREATIVE_MED,
+    creative_long=CREATIVE_LONG,
 )
 TEST_MODEL_NAME = "unsloth/Llama-3.2-1B"
 TEST_MODEL_3B = "unsloth/Llama-3.2-3B-Instruct"
@@ -100,8 +163,8 @@ class LightPerformanceTest:
         self.tests = PERFORMANCE_TEST_CASES.copy()
 
         # Setup directories
-        self.results_dir = Path("eval/results")
-        self.cache_dir = Path("eval/cache")
+        self.results_dir = Path("evaluation/results")
+        self.cache_dir = Path("evaluation/cache")
         os.makedirs(self.results_dir, exist_ok=True)
         os.makedirs(self.cache_dir, exist_ok=True)
 
@@ -491,15 +554,20 @@ IMPORTANT INSTRUCTIONS:
 
     def run(self):
         """Run all tests."""
-        # Run tests for each complexity level
-        for test_name in self.tests.keys():
-            self.run_test(test_name)
+        categories = {}
+        for test_name, test_data in self.tests.items():
+            try:
+                console.log(f"Running test: {test_name}", style="bold  yellow")
+                start = time.time()
+                self.run_test(test_name)
+                elapsed = time.time() - start
+                categories[test_name] = elapsed
+            except Exception as e:
+                console.log(f"Test {test_name} failed: {e}", style="bold red")
 
-        # Save results
         self.save_results()
-
-        # Display summary
         self.display_summary()
+        console.log(f"Performance tests completed in {categories}")
 
 
 if __name__ == "__main__":
