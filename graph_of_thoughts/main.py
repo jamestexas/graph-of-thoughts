@@ -13,13 +13,11 @@ from graph_of_thoughts.context_manager import (
     parse_chain_of_thought,
     simulate_chat,
 )
+from graph_of_thoughts.graph_utils import load_graph
 from graph_of_thoughts.models import SeedData
 from graph_of_thoughts.utils import build_structured_prompt
-from graph_of_thoughts.graph_utils import load_graph
-
 
 # Define the output directory and file path for the LLM-generated graph
-
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -59,26 +57,38 @@ def main():
     console.log("\n[Structured Reasoning Prompt]:", structured_prompt, style="prompt")
 
     # 3️⃣ Run inference with LLM
-    inputs = context_manager.tokenizer(structured_prompt, return_tensors="pt").to(
-        context_manager.model.device
-    )
-    generation_config = GenerationConfig(
-        max_new_tokens=200,
-        do_sample=True,
-        top_p=0.9,
-        top_k=50,
-        pad_token_id=context_manager.tokenizer.eos_token_id,
-    )
-    with torch.no_grad():
-        output = context_manager.model.generate(**inputs, generation_config=generation_config)
+    response = ""
 
-    structured_reasoning_output = context_manager.tokenizer.decode(
-        output[0], skip_special_tokens=True
-    )
-    console.log("\n[Structured Reasoning Output]:", structured_reasoning_output, style="llm")
+    # Check if we're using UnifiedLLM
+    if hasattr(context_manager.model, "backend"):
+        # Use the UnifiedLLM interface
+        response = context_manager.model.generate(
+            prompt=structured_prompt,
+            max_new_tokens=200,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=50,
+        )
+    else:
+        # Legacy path for direct HF models
+        inputs = context_manager.tokenizer(structured_prompt, return_tensors="pt").to(
+            context_manager.model.device
+        )
+        generation_config = GenerationConfig(
+            max_new_tokens=200,
+            do_sample=True,
+            top_p=0.9,
+            top_k=50,
+            pad_token_id=context_manager.tokenizer.eos_token_id,
+        )
+        with torch.no_grad():
+            output = context_manager.model.generate(**inputs, generation_config=generation_config)
+        response = context_manager.tokenizer.decode(output[0], skip_special_tokens=True)
+
+    console.log("\n[Structured Reasoning Output]:", response, style="llm")
 
     try:
-        chain_obj = parse_chain_of_thought(structured_reasoning_output)
+        chain_obj = parse_chain_of_thought(response)
 
         # 4️⃣ Merge with the existing knowledge graph
         llm_graph["nodes"].update(chain_obj.nodes)  # Add new nodes
@@ -96,7 +106,7 @@ def main():
 
     except Exception as e:
         console.log(f"[Error] Could not parse chain-of-thought JSON: {e}", style="warning")
-        console.log(f"[Error] Raw LLM reasoning output: {output[0]}", style="warning")
+        console.log(f"[Error] Raw LLM reasoning output: {response[:500]}...", style="warning")
 
 
 if __name__ == "__main__":

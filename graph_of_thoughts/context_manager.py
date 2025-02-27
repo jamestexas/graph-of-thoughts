@@ -70,33 +70,145 @@ class FastEmbeddingIndex:
 
 def parse_chain_of_thought(raw_output: str) -> ChainOfThought:
     """
-    Extracts and validates structured JSON from LLM output, ensuring robustness.
+    Extracts and validates structured JSON from LLM output, ensuring robustness
+    for both HF and llama_cpp backends.
+
+    Args:
+        raw_output: The raw string output from the LLM
+
+    Returns:
+        ChainOfThought object with nodes and edges
+
+    Raises:
+        ValueError: If no valid JSON is found or JSON is missing required fields
     """
-    # 🔍 Extract JSON inside <json>...</json>, allowing for any whitespace or newlines
     console.log("🔍 Extracting JSON from raw output", style="info")
-    json_regex_pat = re.compile(r"<json>\s*(\{.*?\})\s*</json>", re.DOTALL)
-    match = json_regex_pat.search(raw_output)
-    if match is None:
+
+    # Try multiple patterns to extract JSON
+    patterns = [
+        r"<internal>\s*(\{.*?\})\s*</internal>",  # <internal> tags
+        r"<json>\s*(\{.*?\})\s*</json>",  # <json> tags
+        r"```(?:json)?\s*(\{.*?\})\s*```",  # Code blocks with optional json language
+        r'(\{[\s\S]*?"nodes"[\s\S]*?"edges"[\s\S]*?\})',  # JSON-like structure with nodes and edges
+    ]
+
+    json_string = None
+    for pattern in patterns:
+        match = re.search(pattern, raw_output, re.DOTALL)
+        if match:
+            json_string = match.group(1).strip()
+            console.log(f"✅ Found JSON using pattern: {pattern}", style="info")
+            break
+
+    if json_string is None:
         console.log("❌ No valid JSON block found in LLM output!", style="warning")
         raise ValueError("No valid JSON block found.")
 
-    json_string = match.group(1).strip()
-    # ✅ Debugging: Print extracted JSON before parsing
-    console.log(f"✅ Extracted JSON String:\n{json_string}", style="context")
+    # Debug - print extracted JSON
+    console.log(
+        f"✅ Extracted JSON String (first 100 chars):\n{json_string[:100]}...", style="context"
+    )
 
     try:
         data = json.loads(json_string)
-    except ValueError as e:
+    except json.JSONDecodeError as e:
         console.log(
-            f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string}",
+            f"❌ JSON Decode Error: {e}\nRaw JSON Extracted:\n{json_string[:200]}...",
             style="warning",
         )
-        raise ValueError("Invalid JSON format.") from e
 
+        # Last attempt - try to clean and reformat JSON
+        try:
+            # Sometimes llama_cpp outputs might have malformed JSON with missing quotes
+            fixed_json = re.sub(r"([{,])\s*(\w+):", r'\1"\2":', json_string)
+
+            # Replace single quotes with double quotes
+            fixed_json = fixed_json.replace("'", '"')
+
+            # Try parsing again
+            data = json.loads(fixed_json)
+            console.log("🔧 Fixed JSON format issues and successfully parsed", style="info")
+        except json.JSONDecodeError:
+            raise ValueError("Invalid JSON format.") from e
+
+    # Check for required fields
     if "nodes" not in data or "edges" not in data:
-        console.log(f"❌ Parsed JSON missing required fields: {data}", style="warning")
-        raise ValueError("JSON missing 'nodes' or 'edges'.")
+        console.log(f"❌ Parsed JSON missing required fields: {data.keys()}", style="warning")
 
+        # Try to build a valid structure from what we have
+        fixed_data = {}
+
+        # Handle if only one field is missing
+        if "nodes" in data:
+            fixed_data["nodes"] = data["nodes"]
+        else:
+            fixed_data["nodes"] = {}
+
+        if "edges" in data:
+            fixed_data["edges"] = data["edges"]
+        else:
+            fixed_data["edges"] = []
+
+        # If we have neither, raise error
+        if not fixed_data["nodes"] and not fixed_data["edges"]:
+            raise ValueError("JSON missing 'nodes' and 'edges'.")
+
+        console.log("🔧 Created valid structure from partial data", style="info")
+        data = fixed_data
+
+    # Validate nodes and edges formats
+    if not isinstance(data["nodes"], dict):
+        console.log(f"❌ 'nodes' is not a dictionary: {type(data['nodes'])}", style="warning")
+        # Try to convert if possible, otherwise use empty dict
+        if isinstance(data["nodes"], list) and all(isinstance(n, dict) for n in data["nodes"]):
+            # Convert list of dicts to single dict
+            nodes_dict = {}
+            for i, node in enumerate(data["nodes"]):
+                if "id" in node and "content" in node:
+                    nodes_dict[node["id"]] = node["content"]
+                elif "name" in node and "description" in node:
+                    nodes_dict[node["name"]] = node["description"]
+                else:
+                    nodes_dict[f"node_{i}"] = str(node)
+            data["nodes"] = nodes_dict
+            console.log("🔧 Converted nodes list to dictionary", style="info")
+        else:
+            data["nodes"] = {}
+
+    if not isinstance(data["edges"], list):
+        console.log(f"❌ 'edges' is not a list: {type(data['edges'])}", style="warning")
+        # Try to convert if possible, otherwise use empty list
+        if isinstance(data["edges"], dict):
+            edges_list = []
+            for source, targets in data["edges"].items():
+                if isinstance(targets, list):
+                    for target in targets:
+                        edges_list.append([source, target])
+                else:
+                    edges_list.append([source, str(targets)])
+            data["edges"] = edges_list
+            console.log("🔧 Converted edges dict to list", style="info")
+        else:
+            data["edges"] = []
+
+    # Validate edges format
+    valid_edges = []
+    for edge in data["edges"]:
+        if isinstance(edge, list) and len(edge) == 2:
+            # Ensure edge items are strings
+            valid_edges.append([str(edge[0]), str(edge[1])])
+        elif isinstance(edge, dict) and "source" in edge and "target" in edge:
+            # Handle dict-format edges
+            valid_edges.append([str(edge["source"]), str(edge["target"])])
+        else:
+            console.log(f"❌ Skipping invalid edge format: {edge}", style="warning")
+
+    data["edges"] = valid_edges
+
+    console.log(
+        f"✅ Successfully parsed chain of thought with {len(data['nodes'])} nodes and {len(data['edges'])} edges",
+        style="info",
+    )
     return ChainOfThought(nodes=data["nodes"], edges=data["edges"])
 
 
@@ -303,7 +415,7 @@ class ContextGraphManager:
             if "nodes" not in json_data or "edges" not in json_data:
                 console.log("[Warning] Missing required fields in JSON", style="warning")
                 if isinstance(json_data, dict):
-                    console.print_json(json_data)
+                    console.print_json(data=json_data)
                 else:
                     console.log(json_data)
                 return
@@ -336,11 +448,15 @@ def get_context_mgr(
     If 'unified_model' is provided, it is used directly; otherwise, the default HF model/tokenizer are loaded.
     """
     if unified_model is not None:
-        tokenizer = None  # Tokenizer is managed by the unified model.
         model = unified_model
+        # For UnifiedLLM instances, we use the built-in tokenizer functionality
+        # which is either the actual tokenizer (HF) or the UnifiedLLM itself (llama_cpp)
+        tokenizer = unified_model.tokenizer
     else:
+        # Load a new unified model with HF backend by default
         model = get_unified_llm_model(backend="hf", model_name=model_name)
-        tokenizer = model.tokenizer  # UnifiedLLM has a tokenizer attribute for HF backend.
+        tokenizer = model.tokenizer
+
     return ContextGraphManager(tokenizer=tokenizer, model=model)
 
 

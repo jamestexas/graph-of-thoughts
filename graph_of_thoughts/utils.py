@@ -8,7 +8,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from graph_of_thoughts.constants import EMBEDDING_MODEL, MODEL_NAME, SYSTEM_PROMPT, console
+from graph_of_thoughts.constants import EMBEDDING_MODEL, MODEL_NAME, console
 from graph_of_thoughts.unified_llm import UnifiedLLM
 
 # Configure logging
@@ -117,6 +117,7 @@ def get_unified_llm_model(backend: str = "hf", model_name: str = MODEL_NAME, **k
             # If a model instance is provided in kwargs, use it; otherwise, require a model_path.
             if "model" in kwargs and kwargs["model"] is not None:
                 llama_model = kwargs["model"]
+                console.log("Using provided llama_cpp model instance", style="info")
             else:
                 model_path = kwargs.get("model_path")
                 if model_path is None:
@@ -126,7 +127,12 @@ def get_unified_llm_model(backend: str = "hf", model_name: str = MODEL_NAME, **k
                 console.log(f"Initializing llama_cpp model from: {model_path}", style="info")
                 from llama_cpp import Llama
 
-                llama_model = Llama(model_path=model_path, **kwargs)
+                # Make sure we don't pass 'model_name' to Llama
+                kwargs_copy = kwargs.copy()
+                if "model_name" in kwargs_copy:
+                    del kwargs_copy["model_name"]
+
+                llama_model = Llama(model_path=model_path, **kwargs_copy)
 
             _UNIFIED_MODEL_INSTANCE = UnifiedLLM(
                 backend="llama_cpp", model=llama_model, tokenizer=None
@@ -276,14 +282,51 @@ def build_llama_instruct_prompt(system_text: str, user_text: str) -> str:
 
 def build_structured_prompt(query: str) -> str:
     """Build a prompt for structured reasoning about a query."""
+    return f"""<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+You are a knowledge graph builder that responds in a specific format.
 
-    return f"""{SYSTEM_PROMPT}
+IMPORTANT: Output your response in two parts:
+1. First, provide a valid JSON structure inside <internal> tags
+2. Then provide your natural language answer inside <final> tags
 
-📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON.
+The JSON inside <internal> tags must have:
+- "nodes": A dictionary mapping concept names to descriptions
+- "edges": A list of [source, target] pairs showing relationships
 
-Question: {query}
-<json>
+Example format:
+<internal>
+{{
+    "nodes": {{
+        "Caching": "A method for storing frequently used data",
+        "LRU": "Least Recently Used eviction strategy",
+        "Write-Through": "Writes data to cache and database simultaneously"
+    }},
+    "edges": [
+        ["Caching", "LRU"],
+        ["Caching", "Write-Through"]
+    ]
+}}
+</internal>
+
+<final>
+Your detailed explanation goes here, answering the user's question.
+</final>
+<|eot_id|><|start_header_id|>user<|end_header_id|>
+{query}
+<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 """
+
+
+# def build_structured_prompt(query: str) -> str:
+#     """Build a prompt for structured reasoning about a query."""
+
+#     return f"""{SYSTEM_PROMPT}
+
+# 📌 IMPORTANT: **DO NOT** provide explanations. Output **ONLY** JSON.
+
+# Question: {query}
+# <json>
+# """
 
 
 def trim_prompt(extended_prompt: str, tokenizer, max_tokens: int = 800) -> str:

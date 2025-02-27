@@ -14,7 +14,7 @@ from llama_cpp import Llama
 
 from graph_of_thoughts.chat_manager import ChatManager
 from graph_of_thoughts.constants import console
-from graph_of_thoughts.context_manager import ContextGraphManager
+from graph_of_thoughts.context_manager import get_context_mgr
 from graph_of_thoughts.utils import get_unified_llm_model
 
 # --- Configuration ---
@@ -50,36 +50,32 @@ def get_grammar_path(grammar_file: str = GRAMMAR_FILE) -> Path:
     return grammar_path
 
 
-# --- Initialize the llama_cpp model ---
-console.log("Loading GGUF model via llama_cpp...", style="info")
-llama_model = Llama(
-    model_path=str(MODEL_PATH),
-    # Pass the grammar file to enforce output constraints:
-    grammar_file=str(get_grammar_path()),
-    n_ctx=2048,
-    seed=42,
-    verbose=True,
-)
-
-# Create a unified model using the llama_cpp backend.
-# (For llama_cpp, no external tokenizer is needed.)
-unified_model = get_unified_llm_model(
-    backend="llama_cpp",
-    model=llama_model,
-    tokenizer=None,
-)
-
-# Now create a ContextGraphManager.
-# If your ContextGraphManager expects a tokenizer, you might need to adjust it.
-# Here, we pass our unified model in place of the HF model.
-context_manager = ContextGraphManager(model=unified_model, tokenizer=None)
-
-# --- Instantiate ChatManager with the context manager ---
-chat_manager = ChatManager(context_manager=context_manager)
-
-
 def run_conversation():
     """Run a multi-turn conversation using ChatManager with grammar enforcement."""
+    # --- Initialize the llama_cpp model ---
+    console.log("Loading GGUF model via llama_cpp...", style="info")
+    llama_model = Llama(
+        model_path=str(MODEL_PATH),
+        # Pass the grammar file to enforce output constraints:
+        grammar_file=str(get_grammar_path()),
+        n_ctx=2048,
+        seed=42,
+        verbose=True,
+    )
+
+    # Create a unified model using the llama_cpp backend
+    unified_model = get_unified_llm_model(
+        backend="llama_cpp",
+        model=llama_model,
+    )
+
+    # Now create a ContextGraphManager using the get_context_mgr helper
+    context_manager = get_context_mgr(unified_model=unified_model)
+
+    # --- Instantiate ChatManager with the context manager ---
+    chat_manager = ChatManager(context_manager=context_manager)
+
+    # Define the conversation turns
     conversation_turns = [
         "Tell me about database indexing and why it's useful.",
         "What are the different types of database indices?",
@@ -89,14 +85,13 @@ def run_conversation():
     console.log("=== Starting GGUF Conversation with GBNF Grammar ===", style="bold green")
 
     for turn_idx, turn in enumerate(conversation_turns, start=1):
-        console.log(f"[User {turn_idx}]: {turn}", style="user")
         response = chat_manager.process_turn(turn, turn_idx)
         console.log(f"[LLM Response {turn_idx}]: {response}", style="llm")
         time.sleep(1)  # small pause for clarity
 
     # Display the final knowledge graph as text
     console.log("\n[Final Context Graph]:", style="context")
-    graph_text = context_manager.graph_storage.visualize_as_text()
+    graph_text = context_manager.visualize_graph_as_text()
     console.log(graph_text, style="context")
 
 
