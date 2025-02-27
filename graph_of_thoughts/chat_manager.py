@@ -186,17 +186,24 @@ Your detailed answer to the user's question goes here.
         Constructs an extended reasoning prompt where the LLM explicitly navigates the graph.
         Uses caching for improved performance on repeated queries.
         Works with both HF and llama_cpp backends.
+
+        Args:
+            query (str): The query string.
+            max_new_tokens (int, optional): The maximum number of new tokens to generate.
+                Defaults to MAX_NEW_TOKENS.
+
+        Returns:
+            str: The generated response.
         """
-        # Check cache first
+        # Initialize cache if not already present
         if not hasattr(self, "response_cache"):
             self.response_cache = {}
-
         cache_key = hash(query)
         if cache_key in self.response_cache:
             console.log(f"[Cache] Using cached response for query: '{query[:30]}...'", style="info")
             return self.response_cache[cache_key]
 
-        # Get relevant nodes
+        # Build extended prompt
         relevant_nodes = self.context_manager.query_context(query, top_k=3)
         navigation_path = " → ".join(relevant_nodes)
         navigation_instructions = self._get_nav_instructions(
@@ -205,51 +212,46 @@ Your detailed answer to the user's question goes here.
             graph_structure=self.context_manager.visualize_graph_as_text(),
         )
         user_text = f"{navigation_instructions}\n\nQuestion: {query}"
-        system_prompt = """You are a knowledge graph builder. Create nodes and connections for the query.
-    First provide JSON in <internal> tags, then answer the question in <final> tags."""
-
+        system_prompt = (
+            "You are a knowledge graph builder. Create nodes and connections for the query.\n"
+            "First provide JSON in <internal> tags, then answer the question in <final> tags."
+        )
         extended_prompt = build_llama_instruct_prompt(
             system_text=system_prompt,
             user_text=user_text,
         )
 
-        # Handle different backends through the unified model
-        model = self.context_manager.model
+        # Helper for HF generation
+        def hf_generate(model_instance, device, error_msg: str) -> str:
+            try:
+                import torch
+                from transformers import GenerationConfig
 
-        # Check if we're using a UnifiedLLM
+                tokenizer = self.context_manager.tokenizer
+                inputs = tokenizer(extended_prompt, return_tensors="pt").to(device)
+                gen_config = GenerationConfig(
+                    max_new_tokens=max_new_tokens,
+                    do_sample=True,
+                    top_p=0.9,
+                    top_k=50,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
+                with torch.no_grad():
+                    output = model_instance.generate(**inputs, generation_config=gen_config)
+                return tokenizer.decode(output[0], skip_special_tokens=True)
+            except Exception as e:
+                console.log(f"[Error] {error_msg}: {e}", style="warning")
+                return error_msg
+
+        # Generate response based on backend
+        model = self.context_manager.model
         if hasattr(model, "backend"):
             console.log(f"[Debug] Using UnifiedLLM with {model.backend} backend", style="info")
-
             if model.backend == "hf":
-                # For Hugging Face models
-                try:
-                    import torch
-                    from transformers import GenerationConfig
-
-                    inputs = self.context_manager.tokenizer(
-                        extended_prompt, return_tensors="pt"
-                    ).to(model.model.device)
-
-                    generation_config = GenerationConfig(
-                        max_new_tokens=max_new_tokens,
-                        do_sample=True,
-                        top_p=0.9,
-                        top_k=50,
-                        pad_token_id=self.context_manager.tokenizer.eos_token_id,
-                    )
-
-                    with torch.no_grad():
-                        output = model.model.generate(**inputs, generation_config=generation_config)
-
-                    response = self.context_manager.tokenizer.decode(
-                        output[0], skip_special_tokens=True
-                    )
-                except Exception as e:
-                    console.log(f"[Error] HF generation error: {e}", style="warning")
-                    response = "Error generating response with HF backend."
-
+                response = hf_generate(
+                    model.model, model.model.device, "Error generating response with HF backend."
+                )
             elif model.backend == "llama_cpp":
-                # For llama_cpp models, use the unified interface
                 try:
                     response = model.generate(
                         prompt=extended_prompt,
@@ -261,41 +263,18 @@ Your detailed answer to the user's question goes here.
                 except Exception as e:
                     console.log(f"[Error] llama_cpp generation error: {e}", style="warning")
                     response = "Error generating response with llama_cpp backend."
+            else:
+                response = "Unsupported backend."
         else:
-            # Legacy path for direct HF models (not using UnifiedLLM)
             console.log("[Debug] Using legacy HF model directly (not UnifiedLLM)", style="info")
+            response = hf_generate(
+                self.context_manager.model,
+                self.context_manager.model.device,
+                "Error generating response with legacy HF model.",
+            )
 
-            try:
-                import torch
-                from transformers import GenerationConfig
-
-                inputs = self.context_manager.tokenizer(extended_prompt, return_tensors="pt").to(
-                    self.context_manager.model.device
-                )
-
-                generation_config = GenerationConfig(
-                    max_new_tokens=max_new_tokens,
-                    do_sample=True,
-                    top_p=0.9,
-                    top_k=50,
-                    pad_token_id=self.context_manager.tokenizer.eos_token_id,
-                )
-
-                with torch.no_grad():
-                    output = self.context_manager.model.generate(
-                        **inputs, generation_config=generation_config
-                    )
-
-                response = self.context_manager.tokenizer.decode(
-                    output[0], skip_special_tokens=True
-                )
-            except Exception as e:
-                console.log(f"[Error] Legacy HF generation error: {e}", style="warning")
-                response = "Error generating response with legacy HF model."
-
-        # Store in cache for future use
+        # Cache and return the response
         self.response_cache[cache_key] = response
-
         return response
 
     def process_turn(self, user_input: str, conversation_turn: int) -> str:

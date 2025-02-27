@@ -3,10 +3,10 @@ graph_of_thoughts/files/*
 graph_of_thoughts/output/*
 **/default_experiment_data.json
 # TODO there is a better way~
-eval/expirement/*
-eval/cache/*
-eval/output/*
-eval/results/*
+eval*/expirement/*
+eval*/cache/*
+eval*/output/*
+eval*/results/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

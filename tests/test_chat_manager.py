@@ -73,9 +73,26 @@ class TestChatManager(unittest.TestCase):
         query = "Test query"
         max_new_tokens = 100
 
-        # Create a mock for the model.generate() call
+        # Configure query_context to return some nodes.
+        self.context_manager.query_context = MagicMock(return_value=["node1", "node2", "node3"])
+
+        # Create a fake inputs object with a working `to()` method.
+        fake_inputs = MagicMock()
+        fake_inputs.to = MagicMock(return_value=fake_inputs)
+
+        # Set up tokenizer to return the fake inputs and have a decode method.
+        tokenizer_mock = MagicMock(return_value=fake_inputs)
+        tokenizer_mock.decode = MagicMock(return_value="Mock LLM response")
+        # Set a dummy eos_token_id to avoid AttributeError
+        tokenizer_mock.eos_token_id = 0
+        self.context_manager.tokenizer = tokenizer_mock
+
+        # Create a model mock that simulates a UnifiedLLM with HF backend.
         model_mock = MagicMock()
-        model_mock.generate.return_value = [MagicMock()]  # Mock output tensor
+        model_mock.backend = "hf"
+        # For HF unified branch, the code calls model.model.generate(...)
+        model_mock.model = model_mock  # self-reference for simplicity
+        model_mock.generate.return_value = [MagicMock()]
         model_mock.device = "cpu"
         self.context_manager.model = model_mock
 
@@ -84,9 +101,9 @@ class TestChatManager(unittest.TestCase):
 
         # Assertions
         self.context_manager.query_context.assert_called_with(query, top_k=3)
-        self.context_manager.tokenizer.assert_called_once()
-        self.context_manager.model.generate.assert_called_once()
-        self.context_manager.tokenizer.decode.assert_called_once()
+        tokenizer_mock.assert_called_once()  # Called to tokenize the prompt.
+        model_mock.generate.assert_called_once()  # Generation should be invoked.
+        tokenizer_mock.decode.assert_called_once()  # Decoding the generated output.
         self.assertEqual(response, "Mock LLM response")
 
     @patch("graph_of_thoughts.chat_manager.extract_sections")
