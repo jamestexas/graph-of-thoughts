@@ -90,7 +90,9 @@ def get_sentence_transformer(model_name: str = EMBEDDING_MODEL) -> SentenceTrans
     return _SENTENCE_MODEL_INSTANCE
 
 
-def get_unified_llm_model(backend: str = "hf", model_name: str = MODEL_NAME, **kwargs) -> Any:
+def get_unified_llm_model(
+    backend: str = "hf", model_name: str = MODEL_NAME, **kwargs
+) -> UnifiedLLM:
     """
     Get a unified LLM model that implements a common generate() interface.
 
@@ -131,6 +133,8 @@ def get_unified_llm_model(backend: str = "hf", model_name: str = MODEL_NAME, **k
                 kwargs_copy = kwargs.copy()
                 if "model_name" in kwargs_copy:
                     del kwargs_copy["model_name"]
+                if "model_path" in kwargs_copy:
+                    del kwargs_copy["model_path"]
 
                 llama_model = Llama(model_path=model_path, **kwargs_copy)
 

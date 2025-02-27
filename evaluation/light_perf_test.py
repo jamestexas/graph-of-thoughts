@@ -7,17 +7,14 @@ from typing import TypedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-from llama_cpp import Llama
 from rich.table import Table
+from run_gbnf_conversation import MODEL_PATH as LLAMA_MODEL_PATH, get_grammar_path
 from transformers import GenerationConfig
 
 from graph_of_thoughts.constants import console
 from graph_of_thoughts.context_manager import ContextGraphManager, DateTimeEncoder, get_context_mgr
 from graph_of_thoughts.models import ChainOfThought
-from graph_of_thoughts.utils import get_tokenizer, get_unified_llm_model
-
-from .run_gbnf_conversation import MODEL_PATH as LLAMA_MODEL_PATH, get_grammar_path
+from graph_of_thoughts.utils import get_unified_llm_model
 
 
 class PerformanceTestCase(TypedDict):
@@ -76,29 +73,23 @@ class LightPerformanceTest:
         Initialize the performance test with a specific model.
         """
         if use_llama:
-            # Initialize the llama_cpp model like in your conversation script.
-            console.log("Loading GGUF model via llama_cpp...", style="info")
-            llama_model = Llama(
-                model_path=str(LLAMA_MODEL_PATH),
-                grammar_file=str(get_grammar_path()),
-                n_ctx=2048,
-                seed=42,
-                verbose=True,
-            )
-            # Wrap the llama_cpp model in a unified model interface.
-            self.model = get_unified_llm_model(
+            # Use model_path instead of model_name for llama_cpp
+            self.model_name = str(LLAMA_MODEL_PATH)
+            kwargs = dict(
                 backend="llama_cpp",
-                model=llama_model,
+                model_path=self.model_name,  # change from model_name to model_path
+                grammar_file=str(get_grammar_path()),
             )
-            # The tokenizer might be available from the unified model or separately;
-            # adjust as needed (here we assume the unified model exposes one).
-            self.tokenizer = self.model.tokenizer
-        else:
-            # Fallback to your original method (e.g. HF)
-            from graph_of_thoughts.utils import get_llm_model
 
-            self.model = get_llm_model(model_name=TEST_MODEL_3B)
-            self.tokenizer = get_tokenizer(model_name=TEST_MODEL_3B)
+        else:
+            kwargs = dict(
+                backend="hf",
+                model_name=model_name,
+            )
+            self.model_name = model_name
+
+        self.model = get_unified_llm_model(**kwargs)
+        self.tokenizer = self.model.tokenizer
 
         # Create the context manager with the unified model
         self.context_manager = ContextGraphManager(
@@ -117,26 +108,28 @@ class LightPerformanceTest:
         # Results storage
         self.results = {}
 
-    def run_llm_inference(self, prompt):
+    def run_llm_inference(self, prompt: str) -> str:
         """Run inference with the LLM."""
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-
+        max_new_tokens = 800  # or your desired value
         generation_config = GenerationConfig(
-            max_new_tokens=800,
+            max_new_tokens=max_new_tokens,
             do_sample=True,
             top_p=0.9,
             top_k=50,
             pad_token_id=self.tokenizer.eos_token_id,
         )
-
-        with torch.no_grad():
-            output = self.model.generate(
-                **inputs,
-                generation_config=generation_config,
-            )
-
-        result = self.tokenizer.decode(output[0], skip_special_tokens=True)
-        return result
+        output = self.model.generate(
+            prompt=prompt,
+            max_new_tokens=max_new_tokens,
+            generation_config=generation_config,
+        )
+        # For llama_cpp backend, our unified generate() already returns a string.
+        if self.model.backend == "llama_cpp":
+            return output
+        else:
+            # For HF backend, output is a tensor list that needs decoding.
+            result = self.tokenizer.decode(output[0], skip_special_tokens=True)
+            return result
 
     def get_context_manager(self):
         """Get a fresh context manager."""

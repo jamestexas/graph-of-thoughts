@@ -36,47 +36,31 @@ class UnifiedLLM:
         else:
             raise ValueError(f"Unsupported backend: {backend}")
 
-    def generate(self, prompt: str, max_new_tokens: int = 200, **generate_kwargs) -> str:
-        """
-        Generate text from a prompt using the unified interface.
-
-        Args:
-            prompt: The input text prompt
-            max_new_tokens: Maximum number of tokens to generate
-            **generate_kwargs: Additional generation parameters
-
-        Returns:
-            The generated text
-        """
+    def generate(self, prompt: str, max_new_tokens: int, **kwargs) -> str:
         if self.backend == "hf":
-            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-            # Pass additional generation kwargs if provided.
-            output = self.model.generate(**inputs, max_new_tokens=max_new_tokens, **generate_kwargs)
+            generation_config = kwargs.get(
+                "generation_config",
+                {
+                    "max_new_tokens": max_new_tokens,
+                    "do_sample": True,
+                    "top_p": 0.9,
+                    "top_k": 50,
+                    "pad_token_id": self.tokenizer.eos_token_id,
+                },
+            )
+            inputs = self.tokenizer(prompt, return_tensors="pt", **kwargs)
+            output = self.model.generate(**inputs, generation_config=generation_config)
             return self.tokenizer.decode(output[0], skip_special_tokens=True)
         elif self.backend == "llama_cpp":
-            # llama_cpp API expects different parameters
-            try:
-                # First, check if we're using the llama-cpp-python newer API
-                if hasattr(self.model, "create_completion"):
-                    response = self.model.create_completion(
-                        prompt=prompt, max_tokens=max_new_tokens, **generate_kwargs
-                    )
-                    if isinstance(response, dict) and "choices" in response:
-                        return response["choices"][0]["text"]
-                    return response.get("text", "")
-                else:
-                    # Older API just uses __call__
-                    response = self.model(
-                        prompt=prompt, max_tokens=max_new_tokens, **generate_kwargs
-                    )
-                    if isinstance(response, dict) and "choices" in response:
-                        return response["choices"][0]["text"]
-                    return response.get("text", "")
-            except Exception as e:
-                import traceback
-
-                traceback.print_exc()
-                return f"Error in llama_cpp generation: {str(e)}"
+            generate_kwargs = {
+                "prompt": prompt,
+                "max_tokens": max_new_tokens,
+                "temperature": kwargs.get("temperature", 0.7),
+                "top_p": kwargs.get("top_p", 0.9),
+                "top_k": kwargs.get("top_k", 50),
+            }
+            response = self.model.create_completion(**generate_kwargs)
+            return response["choices"][0]["text"]
         else:
             raise ValueError("Unsupported backend")
 
@@ -117,10 +101,16 @@ class UnifiedLLM:
         if self.backend == "hf":
             return self.tokenizer(text, return_tensors=return_tensors, **kwargs)
         elif self.backend == "llama_cpp":
-            # Create a dict-like object that has a .to() method and can be used with **inputs
-            # This is a minimal implementation that satisfies the model.generate() call
+            # Create a custom dict subclass to support a .to() method.
+            class TokenizerOutput(dict):
+                def to(self, device):
+                    # llama_cpp doesn't actually use the device, so simply return self
+                    return self
+
+            # Minimal implementation for llama_cpp tokenization.
             if hasattr(self.model, "tokenize"):
-                tokens = self.model.tokenize(text)
+                # Encode the text to bytes (UTF-8) before tokenization
+                tokens = self.model.tokenize(text.encode("utf-8"), add_bos=True, special=True)
 
                 class TokenTensor:
                     def __init__(self, tokens):
@@ -130,18 +120,11 @@ class UnifiedLLM:
                         # Just return self since llama_cpp doesn't use devices
                         return self
 
-                # Return a dict-like object that mimics HF tokenizer output
-                result = {"input_ids": TokenTensor(tokens)}
-
-                # Add a 'to' method to the result dict to make it compatible with HF code
-                def to_method(device):
-                    return result
-
-                result.to = to_method
+                # Wrap the tokens in our custom dict subclass.
+                result = TokenizerOutput({"input_ids": TokenTensor(tokens)})
                 return result
             else:
-                # If no tokenization is available, create a dummy structure
-                # that will be ignored when we call our generate() method
+                # Fallback dummy output if no tokenization is available.
                 class DummyTokenizerOutput(dict):
                     def to(self, device):
                         return self
